@@ -1,0 +1,259 @@
+// NestKeep — Prisma Schema
+// Database: PostgreSQL (Supabase)
+// Rule 6: All money stored as BigInt (tambala — smallest MWK unit)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+}
+
+enum AccountStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  CONFLICT
+}
+
+enum ThemePreference {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────
+// HOUSEHOLD
+// Rule 8: Every account belongs to a household
+// ─────────────────────────────────────────────
+
+model Household {
+  id         String     @id @default(uuid())
+  name       String
+  currency   String     @default("MWK")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deletedAt  DateTime?
+  syncStatus SyncStatus @default(PENDING)
+  syncedAt   DateTime?
+
+  accounts Account[]
+  members  HouseholdMember[]
+  settings Settings?
+
+  @@map("households")
+}
+
+// ─────────────────────────────────────────────
+// HOUSEHOLD MEMBER
+// Phase 12: Roles — Owner, Admin, Member, Viewer
+// ─────────────────────────────────────────────
+
+model HouseholdMember {
+  id          String     @id @default(uuid())
+  householdId String
+  userId      String?
+  name        String
+  email       String?
+  role        MemberRole @default(MEMBER)
+  joinedAt    DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  syncStatus  SyncStatus @default(PENDING)
+  syncedAt    DateTime?
+
+  household Household @relation(fields: [householdId], references: [id])
+
+  @@unique([householdId, email])
+  @@index([householdId])
+  @@index([userId])
+  @@map("household_members")
+}
+
+// ─────────────────────────────────────────────
+// ACCOUNT
+// Rule 4: Accounts with history are archived, not deleted
+// Rule 10: Each account has its own independent ledger
+// ─────────────────────────────────────────────
+
+model Account {
+  id          String        @id @default(uuid())
+  householdId String
+  name        String
+  description String?
+  icon        String        @default("piggy-bank")
+  color       String        @default("#4F46E5")
+  status      AccountStatus @default(ACTIVE)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  syncStatus  SyncStatus    @default(PENDING)
+  syncedAt    DateTime?
+
+  household    Household     @relation(fields: [householdId], references: [id])
+  transactions Transaction[]
+
+  @@index([householdId])
+  @@index([householdId, status])
+  @@map("accounts")
+}
+
+// ─────────────────────────────────────────────
+// TRANSACTION
+// Rule 1: Transactions are the source of truth
+// Rule 2: Never permanently delete — soft delete only
+// Rule 6: amount stored as BigInt (tambala)
+// Rule 13: Immutable once synced — corrections via reversal
+// ─────────────────────────────────────────────
+
+model Transaction {
+  id           String          @id @default(uuid())
+  accountId    String
+  type         TransactionType
+  amount       BigInt
+  note         String?
+  tags         String[]        @default([])
+  transactedAt DateTime
+  isReversed   Boolean         @default(false)
+  reversesId   String?         @unique
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+  syncStatus   SyncStatus      @default(PENDING)
+  syncedAt     DateTime?
+
+  account    Account      @relation(fields: [accountId], references: [id])
+  transfer   Transfer?    @relation("FromTransaction")
+  transferTo Transfer?    @relation("ToTransaction")
+  reverses   Transaction? @relation("TransactionReversal", fields: [reversesId], references: [id])
+  reversedBy Transaction? @relation("TransactionReversal")
+
+  @@index([accountId])
+  @@index([accountId, transactedAt])
+  @@index([accountId, type])
+  @@index([transactedAt])
+  @@index([syncStatus])
+  @@map("transactions")
+}
+
+// ─────────────────────────────────────────────
+// TRANSFER
+// Rule 9: Transfers do not change total savings
+// A transfer links exactly two transactions (debit + credit)
+// ─────────────────────────────────────────────
+
+model Transfer {
+  id                String     @id @default(uuid())
+  fromTransactionId String     @unique
+  toTransactionId   String     @unique
+  note              String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  syncStatus        SyncStatus @default(PENDING)
+  syncedAt          DateTime?
+
+  fromTransaction Transaction @relation("FromTransaction", fields: [fromTransactionId], references: [id])
+  toTransaction   Transaction @relation("ToTransaction", fields: [toTransactionId], references: [id])
+
+  @@map("transfers")
+}
+
+// ─────────────────────────────────────────────
+// SETTINGS
+// Rule 15: One default currency per household
+// ─────────────────────────────────────────────
+
+model Settings {
+  id                   String          @id @default(uuid())
+  householdId          String          @unique
+  currency             String          @default("MWK")
+  currencySymbol       String          @default("MK")
+  dateFormat           String          @default("DD/MM/YYYY")
+  theme                ThemePreference @default(SYSTEM)
+  language             String          @default("en")
+  pinEnabled           Boolean         @default(false)
+  biometricsEnabled    Boolean         @default(false)
+  notificationsEnabled Boolean         @default(true)
+  autoLockMinutes      Int             @default(5)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  syncStatus           SyncStatus      @default(PENDING)
+  syncedAt             DateTime?
+
+  household Household @relation(fields: [householdId], references: [id])
+
+  @@map("settings")
+}
+
+// ─────────────────────────────────────────────
+// SAVINGS GOAL
+// Phase 13: Goal-based saving
+// ─────────────────────────────────────────────
+
+model SavingsGoal {
+  id          String    @id @default(uuid())
+  householdId String
+  accountId   String?
+  name        String
+  targetAmount BigInt
+  deadline    DateTime?
+  note        String?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  syncStatus  SyncStatus @default(PENDING)
+  syncedAt    DateTime?
+
+  @@index([householdId])
+  @@map("savings_goals")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// Rule 12: Every record includes audit metadata
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  householdId String
+  userId      String?
+  entityType  String
+  entityId    String
+  action      String
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([householdId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

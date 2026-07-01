@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "NestKeep",
+    "slug": "nestkeep",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nestkeep",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0A63E0"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.nestkeep.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A63E0"
+      },
+      "package": "com.nestkeep.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow NestKeep to use Face ID to unlock the app."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

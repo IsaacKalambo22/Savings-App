@@ -1,0 +1,76 @@
+{
+  "name": "nestkeep",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "packageManager": "pnpm@10.11.1",
+  "scripts": {
+    "start": "EXPO_USE_FAST_RESOLVER=1 expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.0",
+    "@hookform/resolvers": "^4.1.0",
+    "@prisma/client": "^6.0.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "@tanstack/react-query": "^5.75.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "expo": "~55.0.0",
+    "expo-font": "~55.0.8",
+    "expo-local-authentication": "~55.0.15",
+    "expo-router": "~55.0.16",
+    "expo-secure-store": "~55.0.15",
+    "expo-splash-screen": "~55.0.22",
+    "expo-status-bar": "~55.0.6",
+    "nativewind": "^4.2.6",
+    "react": "19.2.0",
+    "react-hook-form": "^7.56.0",
+    "react-native": "0.83.6",
+    "react-native-css-interop": "^0.2.6",
+    "react-native-reanimated": "4.2.1",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
+    "tailwindcss": "^3.4.17",
+    "zod": "^3.24.2",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.0",
+    "@babel/plugin-transform-react-jsx": "^7.25.0",
+    "@types/react": "^19.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "babel-preset-expo": "~55.0.8",
+    "eslint": "^9.18.0",
+    "eslint-config-expo": "~55.0.1",
+    "prettier": "^3.4.2",
+    "prisma": "^6.0.0",
+    "react-native-worklets": "^0.8.3",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "@prisma/client",
+      "esbuild",
+      "prisma",
+      "unrs-resolver"
+    ]
+  }
+}
