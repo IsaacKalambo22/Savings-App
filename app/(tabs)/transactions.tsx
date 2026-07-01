@@ -3,17 +3,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTransactionStore } from "@/features/transactions/store/transaction.store";
+import { useAccountStore } from "@/features/accounts/store/account.store";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { TransactionType } from "@/types/prisma";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
 import dayjs from "dayjs";
+import { SearchBar } from "@/components/search-bar";
+import { FilterModal } from "@/components/filter-modal";
+import { useState } from "react";
 
 export default function TransactionsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
-  const { filteredTransactions } = useTransactionStore();
+  const { filteredTransactions, searchFilters, setSearchFilters, sortBy, setSortBy, resetSearchFilters } = useTransactionStore();
+  const { activeAccounts } = useAccountStore();
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(searchFilters.searchQuery || "");
 
   const formatAmount = (amount: bigint, type: TransactionType) => {
     const value = fromBigInt(amount);
@@ -47,22 +54,57 @@ export default function TransactionsScreen() {
     }
   };
 
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    setSearchFilters({ searchQuery: text });
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSearchFilters({ searchQuery: "" });
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    resetSearchFilters();
+    setShowFilterModal(false);
+  };
+
+  const hasActiveFilters = searchFilters.accountId || searchFilters.type || sortBy !== "newest";
+
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4">
         <Text className="text-xl font-bold" style={{ color: colors.text }}>
           Transactions
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push("/transaction/add")}
-          className="rounded-full w-9 h-9 items-center justify-center"
-          style={{ backgroundColor: colors.primary }}
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setShowFilterModal(true)}
+            className="rounded-full w-9 h-9 items-center justify-center"
+            style={{ backgroundColor: hasActiveFilters ? colors.primary : colors.surface, borderColor: colors.border, borderWidth: 1 }}
+          >
+            <Ionicons name="options" size={22} color={hasActiveFilters ? "#fff" : colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/transaction/add")}
+            className="rounded-full w-9 h-9 items-center justify-center"
+            style={{ backgroundColor: colors.primary }}
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView className="flex-1 px-4">
+        <View className="mb-4">
+          <SearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            onClear={handleClearSearch}
+            placeholder="Search transactions..."
+          />
+        </View>
         {filteredTransactions.length === 0 ? (
           <View className="items-center justify-center py-20">
             <Ionicons name="swap-horizontal-outline" size={48} color={colors.textSecondary} />
@@ -117,6 +159,19 @@ export default function TransactionsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        selectedAccount={searchFilters.accountId}
+        onAccountChange={(accountId) => setSearchFilters({ accountId })}
+        selectedType={searchFilters.type}
+        onTypeChange={(type) => setSearchFilters({ type })}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        accounts={activeAccounts}
+        onReset={handleResetFilters}
+      />
     </SafeAreaView>
   );
 }
