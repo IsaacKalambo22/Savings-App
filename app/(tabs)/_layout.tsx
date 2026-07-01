@@ -3,6 +3,7 @@ import { useColorScheme } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useUIStore } from "@/store/ui.store";
 import { Colors } from "@/constants/colors";
+import { SyncStatusIndicator } from "@/components/sync-status";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -45,6 +46,7 @@ export default function TabLayout() {
         tabBarIconStyle: {
           marginBottom: 2,
         },
+        headerRight: () => <SyncStatusIndicator />,
       }}
     >
       <Tabs.Screen

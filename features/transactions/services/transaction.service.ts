@@ -1,5 +1,6 @@
 import { PrismaClient, Transaction, TransactionType } from "@/types/prisma";
 import { TransactionWithAccount, TransactionFormData, TransferFormData } from "@/types/transaction";
+import { addToSyncQueue } from "@/features/sync/services/sync-queue.service";
 
 const prisma = new PrismaClient();
 
@@ -50,7 +51,7 @@ export async function getTransaction(id: string): Promise<TransactionWithAccount
  * Rule 6: Amount stored as BigInt
  */
 export async function createTransaction(data: TransactionFormData): Promise<Transaction> {
-  return prisma.transaction.create({
+  const transaction = await prisma.transaction.create({
     data: {
       accountId: data.accountId,
       type: data.type,
@@ -61,6 +62,11 @@ export async function createTransaction(data: TransactionFormData): Promise<Tran
     },
     include: { account: true },
   });
+
+  // Add to sync queue
+  addToSyncQueue("create", "transaction", transaction.id, data);
+
+  return transaction;
 }
 
 /**
@@ -79,11 +85,16 @@ export async function updateTransaction(
     updateData.amount = toBigInt(data.amount);
   }
 
-  return prisma.transaction.update({
+  const transaction = await prisma.transaction.update({
     where: { id },
     data: updateData,
     include: { account: true },
   });
+
+  // Add to sync queue
+  addToSyncQueue("update", "transaction", id, data);
+
+  return transaction;
 }
 
 /**
@@ -121,6 +132,18 @@ export async function reverseTransaction(
   await prisma.transaction.update({
     where: { id },
     data: { isReversed: true },
+  });
+
+  // Add to sync queue
+  addToSyncQueue("update", "transaction", id, { isReversed: true });
+  addToSyncQueue("create", "transaction", reversal.id, {
+    accountId: original.accountId,
+    type: reversalType,
+    amount: fromBigInt(original.amount),
+    note: note || `Reversal of transaction`,
+    tags: original.tags,
+    transactedAt: new Date(),
+    reversesId: original.id,
   });
 
   return reversal;
@@ -168,6 +191,23 @@ export async function createTransfer(data: TransferFormData): Promise<{
       toTransactionId: toTransaction.id,
       note: data.note,
     },
+  });
+
+  // Add to sync queue
+  addToSyncQueue("create", "transfer", transfer.id, data);
+  addToSyncQueue("create", "transaction", fromTransaction.id, {
+    accountId: data.fromAccountId,
+    type: TransactionType.WITHDRAWAL,
+    amount: data.amount,
+    note: data.note ? `Transfer: ${data.note}` : "Transfer",
+    transactedAt: data.transactedAt,
+  });
+  addToSyncQueue("create", "transaction", toTransaction.id, {
+    accountId: data.toAccountId,
+    type: TransactionType.DEPOSIT,
+    amount: data.amount,
+    note: data.note ? `Transfer: ${data.note}` : "Transfer",
+    transactedAt: data.transactedAt,
   });
 
   return { fromTransaction, toTransaction, transfer };
