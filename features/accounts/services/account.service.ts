@@ -1,7 +1,40 @@
 import { PrismaClient, Account, AccountStatus, TransactionType } from "@prisma/client";
-import { AccountWithBalance, CreateAccountFormData } from "@/types/account";
+import { AccountWithBalance, AccountFormData } from "@/types/account";
 
 const prisma = new PrismaClient();
+
+/**
+ * Ensure default household exists
+ */
+export async function ensureDefaultHousehold(): Promise<string> {
+  const DEFAULT_HOUSEHOLD_ID = "default-household";
+  
+  const existing = await prisma.household.findUnique({
+    where: { id: DEFAULT_HOUSEHOLD_ID },
+  });
+
+  if (existing) {
+    return existing.id;
+  }
+
+  // Create default household
+  const household = await prisma.household.create({
+    data: {
+      id: DEFAULT_HOUSEHOLD_ID,
+      name: "My Household",
+    },
+  });
+
+  // Create default settings
+  await prisma.settings.create({
+    data: {
+      householdId: household.id,
+      currency: "MWK",
+    },
+  });
+
+  return household.id;
+}
 
 /**
  * Calculate account balance from transaction history
@@ -91,7 +124,7 @@ export async function getAccountWithBalance(id: string): Promise<AccountWithBala
  */
 export async function createAccount(
   householdId: string,
-  data: CreateAccountFormData
+  data: AccountFormData
 ): Promise<Account> {
   const maxSortOrder = await prisma.account.findFirst({
     where: { householdId, deletedAt: null },
@@ -115,7 +148,7 @@ export async function createAccount(
  */
 export async function updateAccount(
   id: string,
-  data: Partial<CreateAccountFormData>
+  data: Partial<AccountFormData>
 ): Promise<Account> {
   return prisma.account.update({
     where: { id },

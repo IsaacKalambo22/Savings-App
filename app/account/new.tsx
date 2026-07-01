@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
-import { createAccount as createAccountService } from "@/features/accounts/services/account.service";
+import { createAccount as createAccountService, ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { ACCOUNT_ICONS, AccountIcon } from "@/types/account";
 import { useState } from "react";
 
@@ -27,8 +27,8 @@ export default function NewAccountScreen() {
     }
 
     try {
-      // For now, use a default household ID - in production this would come from auth/household context
-      const householdId = "default-household";
+      // Ensure default household exists
+      const householdId = await ensureDefaultHousehold();
       
       const account = await createAccountService(householdId, {
         name: name.trim(),
@@ -65,13 +65,13 @@ export default function NewAccountScreen() {
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.push("/(tabs)/accounts")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text className="text-lg font-bold" style={{ color: colors.text }}>
           New Account
         </Text>
-        <TouchableOpacity onPress={handleSave}>
+        <TouchableOpacity onPress={handleSave} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
             Save
           </Text>

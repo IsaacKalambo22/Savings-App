@@ -106,7 +106,7 @@ model Account {
   householdId String
   name        String
   description String?
-  icon        String        @default("piggy-bank")
+  icon        String        @default("wallet")
   color       String        @default("#4F46E5")
   status      AccountStatus @default(ACTIVE)
   sortOrder   Int           @default(0)

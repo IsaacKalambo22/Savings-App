@@ -18,7 +18,7 @@ export default function AccountFormScreen() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [icon, setIcon] = useState<AccountIcon>("piggy-bank");
+  const [icon, setIcon] = useState<AccountIcon>("wallet");
   const [selectedColor, setSelectedColor] = useState("#0A63E0");
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -33,13 +33,13 @@ export default function AccountFormScreen() {
     console.log("Saving account:", { name, description, icon, color: selectedColor });
     
     Alert.alert("Success", isEditing ? "Account updated" : "Account created");
-    router.back();
+    router.push("/(tabs)/accounts");
   };
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.push("/(tabs)/accounts")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
             Cancel
           </Text>
@@ -47,7 +47,7 @@ export default function AccountFormScreen() {
         <Text className="text-lg font-bold" style={{ color: colors.text }}>
           {isEditing ? "Edit Account" : "New Account"}
         </Text>
-        <TouchableOpacity onPress={handleSave}>
+        <TouchableOpacity onPress={handleSave} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
             Save
           </Text>
@@ -158,7 +158,7 @@ export default function AccountFormScreen() {
       <IconPicker
         visible={showIconPicker}
         selectedIcon={icon}
-        onSelect={setIcon}
+        onSelect={(icon) => setIcon(icon as AccountIcon)}
         onClose={() => setShowIconPicker(false)}
       />
 

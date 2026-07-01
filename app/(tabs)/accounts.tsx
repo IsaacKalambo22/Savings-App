@@ -2,15 +2,38 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useAccountStore } from "@/features/accounts/store/account.store";
+import { getAccountsWithBalance, ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
+import { useCallback } from "react";
 
 export default function AccountsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
-  const { activeAccounts } = useAccountStore();
+  const { activeAccounts, setAccounts, setLoading } = useAccountStore();
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Ensure default household exists and get its ID
+      const householdId = await ensureDefaultHousehold();
+      const accounts = await getAccountsWithBalance(householdId);
+      setAccounts(accounts);
+    } catch (error) {
+      console.error("Error loading accounts:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [setAccounts, setLoading]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAccounts();
+    }, [loadAccounts])
+  );
 
   const formatBalance = (balance: bigint) => {
     const value = Number(balance) / 100;
