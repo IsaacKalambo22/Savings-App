@@ -60,3 +60,5 @@ export function IconPicker({ visible, selectedIcon, onSelect, onClose }: IconPic
     </Modal>
   );
 }
+
+export default IconPicker;

@@ -30,25 +30,20 @@ export default function DashboardScreen() {
     loadMetrics();
   }, [activeAccounts, filteredTransactions]);
 
-  const MetricCard = ({ title, value, subtitle, icon, color, onPress }: any) => (
+  const MetricCard = ({ title, value, subtitle, icon, color, trend, onPress }: any) => (
     <TouchableOpacity
       onPress={onPress}
-      className="p-4 rounded-xl"
+      className="p-4 rounded-xl flex-1"
       style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
     >
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row items-start justify-between mb-2">
         <View className="flex-1">
-          <Text className="text-xs font-medium" style={{ color: colors.textSecondary }}>
+          <Text className="text-xs font-medium mb-1" style={{ color: colors.textSecondary }}>
             {title}
           </Text>
-          <Text className="text-lg font-bold mt-1" style={{ color: colors.text }}>
+          <Text className="text-xl font-bold" style={{ color: colors.text }}>
             {value}
           </Text>
-          {subtitle && (
-            <Text className="text-xs mt-1" style={{ color: colors.textTertiary }}>
-              {subtitle}
-            </Text>
-          )}
         </View>
         <View
           className="w-10 h-10 rounded-full items-center justify-center"
@@ -57,6 +52,21 @@ export default function DashboardScreen() {
           <Ionicons name={icon} size={20} color={color} />
         </View>
       </View>
+      {subtitle && (
+        <View className="flex-row items-center mt-1">
+          {trend && (
+            <Ionicons
+              name={trend === "up" ? "arrow-up" : "arrow-down"}
+              size={14}
+              color={color}
+              style={{ marginRight: 4 }}
+            />
+          )}
+          <Text className="text-xs" style={{ color: colors.textTertiary }}>
+            {subtitle}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -92,15 +102,19 @@ export default function DashboardScreen() {
         <View className="flex-row gap-3 mb-4">
           <MetricCard
             title="Today's Deposits"
-            value={metrics ? formatCurrency(metrics.todayDeposits) : "MK 0.00"}
+            value={metrics ? formatCurrency(metrics.todayDeposits ?? 0) : "MK 0.00"}
+            subtitle={(metrics?.todayDeposits ?? 0) > 0 ? "Today" : "No deposits"}
             icon="arrow-down-circle"
             color={colors.success}
+            trend={(metrics?.todayDeposits ?? 0) > 0 ? "up" : undefined}
           />
           <MetricCard
             title="Today's Withdrawals"
-            value={metrics ? formatCurrency(metrics.todayWithdrawals) : "MK 0.00"}
+            value={metrics ? formatCurrency(metrics.todayWithdrawals ?? 0) : "MK 0.00"}
+            subtitle={(metrics?.todayWithdrawals ?? 0) > 0 ? "Today" : "No withdrawals"}
             icon="arrow-up-circle"
             color={colors.destructive}
+            trend={(metrics?.todayWithdrawals ?? 0) > 0 ? "down" : undefined}
           />
         </View>
 
@@ -108,15 +122,19 @@ export default function DashboardScreen() {
         <View className="flex-row gap-3 mb-4">
           <MetricCard
             title="This Month Deposits"
-            value={metrics ? formatCurrency(metrics.monthlyDeposits) : "MK 0.00"}
+            value={metrics ? formatCurrency(metrics.monthlyDeposits ?? 0) : "MK 0.00"}
+            subtitle={(metrics?.monthlyDeposits ?? 0) > 0 ? "This month" : "No deposits"}
             icon="trending-up"
             color={colors.success}
+            trend={(metrics?.monthlyDeposits ?? 0) > 0 ? "up" : undefined}
           />
           <MetricCard
             title="This Month Withdrawals"
-            value={metrics ? formatCurrency(metrics.monthlyWithdrawals) : "MK 0.00"}
+            value={metrics ? formatCurrency(metrics.monthlyWithdrawals ?? 0) : "MK 0.00"}
+            subtitle={(metrics?.monthlyWithdrawals ?? 0) > 0 ? "This month" : "No withdrawals"}
             icon="trending-down"
             color={colors.destructive}
+            trend={(metrics?.monthlyWithdrawals ?? 0) > 0 ? "down" : undefined}
           />
         </View>
 
@@ -150,46 +168,49 @@ export default function DashboardScreen() {
         )}
 
         {/* Recent Transaction */}
-        {metrics?.recentTransaction ? (
-          <TouchableOpacity
-            onPress={() => router.push(`/transaction/${metrics.recentTransaction.id}`)}
-            className="p-4 rounded-xl mb-4"
-            style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
-          >
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-sm font-semibold" style={{ color: colors.text }}>
-                Recent Transaction
-              </Text>
-              <Text className="text-xs" style={{ color: colors.textSecondary }}>
-                {dayjs(metrics.recentTransaction.transactedAt).format("DD MMM")}
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="flex-1">
-                <Text className="text-base font-semibold" style={{ color: colors.text }}>
-                  {metrics.recentTransaction.account.name}
+        {metrics?.recentTransaction ? (() => {
+          const recentTx = metrics.recentTransaction;
+          return (
+            <TouchableOpacity
+              onPress={() => router.push(`/transaction/${recentTx.id}`)}
+              className="p-4 rounded-xl mb-4"
+              style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+            >
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-sm font-semibold" style={{ color: colors.text }}>
+                  Recent Transaction
                 </Text>
-                {metrics.recentTransaction.note && (
-                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                    {metrics.recentTransaction.note}
-                  </Text>
-                )}
+                <Text className="text-xs" style={{ color: colors.textSecondary }}>
+                  {dayjs(recentTx.transactedAt).format("DD MMM")}
+                </Text>
               </View>
-              <Text
-                className="text-lg font-bold"
-                style={{
-                  color:
-                    metrics.recentTransaction.type === "DEPOSIT"
-                      ? colors.success
-                      : colors.destructive,
-                }}
-              >
-                {metrics.recentTransaction.type === "DEPOSIT" ? "+" : "-"}{" "}
-                {formatCurrency(fromBigInt(metrics.recentTransaction.amount))}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
+              <View className="flex-row items-center">
+                <View className="flex-1">
+                  <Text className="text-base font-semibold" style={{ color: colors.text }}>
+                    {recentTx.account.name}
+                  </Text>
+                  {recentTx.note && (
+                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      {recentTx.note}
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  className="text-lg font-bold"
+                  style={{
+                    color:
+                      recentTx.type === "DEPOSIT"
+                        ? colors.success
+                        : colors.destructive,
+                  }}
+                >
+                  {recentTx.type === "DEPOSIT" ? "+" : "-"}{" "}
+                  {formatCurrency(fromBigInt(recentTx.amount))}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })() : (
           <View
             className="p-4 rounded-xl mb-4 items-center"
             style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}

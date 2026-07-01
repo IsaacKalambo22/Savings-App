@@ -116,7 +116,7 @@ export default function TransactionsScreen() {
             </Text>
           </View>
         ) : (
-          <View className="gap-2">
+          <View className="gap-3">
             {filteredTransactions.map((transaction) => (
               <TouchableOpacity
                 key={transaction.id}
@@ -126,26 +126,52 @@ export default function TransactionsScreen() {
                 <View className="flex-row items-center">
                   <View
                     className="w-12 h-12 rounded-full items-center justify-center mr-3"
-                    style={{ backgroundColor: getColorForType(transaction.type) + "20" }}
+                    style={{ backgroundColor: transaction.account.color + "20" }}
                   >
                     <Ionicons
-                      name={getIconForType(transaction.type) as any}
+                      name={transaction.account.icon as any}
                       size={24}
-                      color={getColorForType(transaction.type)}
+                      color={transaction.account.color}
                     />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold" style={{ color: colors.text }}>
-                      {transaction.account.name}
-                    </Text>
-                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                      {dayjs(transaction.transactedAt).format("DD MMM YYYY")}
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-base font-semibold" style={{ color: colors.text }}>
+                        {transaction.account.name}
+                      </Text>
+                      <View
+                        className="px-2 py-1 rounded-full"
+                        style={{ backgroundColor: getColorForType(transaction.type) + "20" }}
+                      >
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: getColorForType(transaction.type) }}
+                        >
+                          {transaction.type}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                      {dayjs(transaction.transactedAt).format("DD MMM YYYY • HH:mm")}
                     </Text>
                     {transaction.note && (
                       <Text className="text-xs mt-1" style={{ color: colors.textTertiary }}>
                         {transaction.note}
                       </Text>
                     )}
+                  </View>
+                </View>
+                <View className="flex-row items-center justify-between mt-3 pt-3" style={{ borderTopColor: colors.border, borderTopWidth: 1 }}>
+                  <View className="flex-row items-center">
+                    <Ionicons
+                      name={getIconForType(transaction.type) as any}
+                      size={16}
+                      color={getColorForType(transaction.type)}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text className="text-xs" style={{ color: colors.textSecondary }}>
+                      {transaction.type === "DEPOSIT" ? "Deposit" : transaction.type === "WITHDRAWAL" ? "Withdrawal" : "Transfer"}
+                    </Text>
                   </View>
                   <Text
                     className="text-lg font-bold"

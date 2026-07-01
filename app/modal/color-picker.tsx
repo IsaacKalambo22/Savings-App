@@ -63,3 +63,5 @@ export function ColorPicker({ visible, selectedColor, onSelect, onClose }: Color
     </Modal>
   );
 }
+
+export default ColorPicker;

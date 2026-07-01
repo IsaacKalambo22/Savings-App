@@ -3,10 +3,10 @@ import { TransactionWithAccount } from "./transaction";
 
 export interface DashboardMetrics {
   totalSavings: number;
-  todayDeposits: number;
-  todayWithdrawals: number;
-  monthlyDeposits: number;
-  monthlyWithdrawals: number;
+  todayDeposits?: number;
+  todayWithdrawals?: number;
+  monthlyDeposits?: number;
+  monthlyWithdrawals?: number;
   largestAccount: AccountWithBalance | null;
   recentTransaction: TransactionWithAccount | null;
   totalAccounts: number;

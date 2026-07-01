@@ -21,8 +21,8 @@ function TabIcon({
 export default function TabLayout() {
   const systemScheme = useColorScheme();
   const theme = useUIStore((s) => s.theme);
-  const resolvedScheme = theme === "system" ? (systemScheme ?? "light") : theme;
-  const colors = Colors[resolvedScheme];
+  const resolvedScheme = theme === "system" ? (systemScheme === "unspecified" ? "light" : systemScheme ?? "light") : theme;
+  const colors = Colors[resolvedScheme as "light" | "dark"];
 
   return (
     <Tabs
@@ -32,12 +32,18 @@ export default function TabLayout() {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.tabBarBorder,
           borderTopWidth: 1,
+          height: 100,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: colors.tabIconActive,
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "500",
+          fontSize: 12,
+          fontWeight: "600",
+        },
+        tabBarIconStyle: {
+          marginBottom: 2,
         },
       }}
     >

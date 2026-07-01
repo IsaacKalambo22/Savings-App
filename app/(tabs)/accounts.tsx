@@ -53,20 +53,46 @@ export default function AccountsScreen() {
               >
                 <View className="flex-row items-center">
                   <View
-                    className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                    className="w-14 h-14 rounded-2xl items-center justify-center mr-4"
                     style={{ backgroundColor: account.color + "20" }}
                   >
-                    <Ionicons name={account.icon as any} size={24} color={account.color} />
+                    <Ionicons name={account.icon as any} size={28} color={account.color} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold" style={{ color: colors.text }}>
+                    <Text className="text-lg font-bold" style={{ color: colors.text }}>
                       {account.name}
                     </Text>
-                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                      {account.transactionCount} transactions
-                    </Text>
+                    {account.description && (
+                      <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                        {account.description}
+                      </Text>
+                    )}
+                    <View className="flex-row items-center mt-2">
+                      <View className="flex-row items-center mr-4">
+                        <Ionicons name="receipt" size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                        <Text className="text-xs" style={{ color: colors.textSecondary }}>
+                          {account.transactionCount} transactions
+                        </Text>
+                      </View>
+                      {account.status === "ACTIVE" && (
+                        <View className="flex-row items-center">
+                          <View
+                            className="w-2 h-2 rounded-full mr-2"
+                            style={{ backgroundColor: colors.success }}
+                          />
+                          <Text className="text-xs" style={{ color: colors.success }}>
+                            Active
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <Text className="text-lg font-bold" style={{ color: colors.primary }}>
+                </View>
+                <View className="flex-row items-center justify-between mt-4 pt-4" style={{ borderTopColor: colors.border, borderTopWidth: 1 }}>
+                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                    Balance
+                  </Text>
+                  <Text className="text-xl font-bold" style={{ color: colors.primary }}>
                     {formatBalance(account.balance)}
                   </Text>
                 </View>
