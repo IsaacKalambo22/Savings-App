@@ -30,18 +30,27 @@ import {
 const DB_NAME = "nestkeep.db";
 export const DEFAULT_HOUSEHOLD_ID = "default-household";
 
-let dbInstance: SQLite.SQLiteDatabase | null = null;
+// Cache the connection on globalThis so it survives Metro Fast Refresh (a plain
+// module-level variable is reset on reload, which can leave a released native
+// handle in use → "Cannot use shared object that was already released").
+const g = globalThis as unknown as {
+  __nestkeepDb?: SQLite.SQLiteDatabase;
+  __nestkeepDbOpening?: Promise<SQLite.SQLiteDatabase>;
+};
 let bootstrapPromise: Promise<void> | null = null;
 
 /** Open (once) and return the shared database connection. */
 export async function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbInstance) {
-    dbInstance = await SQLite.openDatabaseAsync(DB_NAME);
-    await dbInstance.execAsync(
-      "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;"
-    );
+  if (g.__nestkeepDb) return g.__nestkeepDb;
+  if (!g.__nestkeepDbOpening) {
+    g.__nestkeepDbOpening = (async () => {
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
+      await db.execAsync("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+      g.__nestkeepDb = db;
+      return db;
+    })();
   }
-  return dbInstance;
+  return g.__nestkeepDbOpening;
 }
 
 // ─────────────────────────────────────────────

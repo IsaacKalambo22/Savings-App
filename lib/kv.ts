@@ -10,16 +10,18 @@
 
 import * as SQLite from "expo-sqlite";
 
-let db: SQLite.SQLiteDatabase | null = null;
+// Cache on globalThis so the handle survives Metro Fast Refresh (see lib/db.ts).
+const g = globalThis as unknown as { __nestkeepKvDb?: SQLite.SQLiteDatabase };
 
 function getKvDb(): SQLite.SQLiteDatabase {
-  if (!db) {
-    db = SQLite.openDatabaseSync("nestkeep-kv.db");
+  if (!g.__nestkeepKvDb) {
+    const db = SQLite.openDatabaseSync("nestkeep-kv.db");
     db.execSync(
       "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);"
     );
+    g.__nestkeepKvDb = db;
   }
-  return db;
+  return g.__nestkeepKvDb;
 }
 
 export const kv = {

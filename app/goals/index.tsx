@@ -1,9 +1,9 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert  } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
@@ -18,8 +18,7 @@ import dayjs from "dayjs";
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   const { activeAccounts } = useAccountStore();
 
   const [householdId, setHouseholdId] = useState("");

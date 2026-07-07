@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, Modal , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal  } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { TransactionType } from "@/types/prisma";
 import { AccountWithBalance } from "@/types/account";
 import { SortOption } from "@/types/search";
@@ -30,8 +30,7 @@ export function FilterModal({
   accounts,
   onReset,
 }: FilterModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: "newest", label: "Newest First" },

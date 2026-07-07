@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator  } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { ExportFormat, ExportDataType, ExportOptions } from "@/types/export";
 import { exportToCSV } from "@/features/export/services/csv-export.service";
 import { exportToExcel } from "@/features/export/services/excel-export.service";
@@ -15,8 +15,7 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ visible, onClose, accountId }: ExportModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [dataType, setDataType] = useState<ExportDataType>("transactions");

@@ -16,9 +16,16 @@ const TABLE_FOR_ENTITY: Record<string, string> = {
   transfer: "transfers",
 };
 
-/** Remote sync is only attempted when Supabase env vars are present. */
+/**
+ * Remote sync is attempted only when Supabase env vars are present AND remote
+ * sync is explicitly enabled. It stays OFF until the Supabase tables exist and
+ * auth (Phase 11) is wired — otherwise every push/pull fails against missing
+ * tables / RLS and just spams warnings. Enable by setting
+ * EXPO_PUBLIC_ENABLE_REMOTE_SYNC=true in .env once the backend is ready.
+ */
 export function isSupabaseConfigured(): boolean {
   return (
+    process.env.EXPO_PUBLIC_ENABLE_REMOTE_SYNC === "true" &&
     !!process.env.EXPO_PUBLIC_SUPABASE_URL &&
     !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
   );

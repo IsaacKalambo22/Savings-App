@@ -1,9 +1,9 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert  } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter , useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { CURRENCIES } from "@/constants/currency";
 import { MemberRole , HouseholdMember, AuditLog, Household } from "@/types/prisma";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
@@ -28,8 +28,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function HouseholdScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   const [householdId, setHouseholdId] = useState<string>("");
   const [household, setHousehold] = useState<Household | null>(null);

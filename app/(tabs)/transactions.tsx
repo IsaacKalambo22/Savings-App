@@ -1,10 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity  } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTransactionStore } from "@/features/transactions/store/transaction.store";
 import { useAccountStore } from "@/features/accounts/store/account.store";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { TransactionType } from "@/types/prisma";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
 import dayjs from "dayjs";
@@ -14,8 +14,7 @@ import { useState } from "react";
 
 export default function TransactionsScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   const { filteredTransactions, searchFilters, setSearchFilters, sortBy, setSortBy, resetSearchFilters } = useTransactionStore();
   const { activeAccounts } = useAccountStore();
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -119,6 +118,7 @@ export default function TransactionsScreen() {
             {filteredTransactions.map((transaction) => (
               <TouchableOpacity
                 key={transaction.id}
+                onPress={() => router.push(`/transaction/${transaction.id}`)}
                 className="p-4 rounded-xl"
                 style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
               >

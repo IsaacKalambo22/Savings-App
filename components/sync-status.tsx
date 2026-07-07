@@ -1,12 +1,11 @@
-import { View, Text, TouchableOpacity , useColorScheme } from "react-native";
+import { View, Text, TouchableOpacity  } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { useSyncStore } from "@/features/sync/store/sync.store";
 import { SyncStatus } from "@/types/sync";
 
 export function SyncStatusIndicator() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   const { status, pendingItems, isOnline, manualSync } = useSyncStore();
 
   const getStatusInfo = () => {

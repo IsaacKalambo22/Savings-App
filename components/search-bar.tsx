@@ -1,6 +1,6 @@
-import { View, TextInput, TouchableOpacity , useColorScheme } from "react-native";
+import { View, TextInput, TouchableOpacity  } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 
 interface SearchBarProps {
   value: string;
@@ -10,8 +10,7 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ value, onChangeText, onClear, placeholder = "Search transactions..." }: SearchBarProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   return (
     <View

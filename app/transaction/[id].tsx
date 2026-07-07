@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator  } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { TransactionType } from "@/types/prisma";
 import { TransactionWithAccount } from "@/types/transaction";
 import {
@@ -17,8 +17,7 @@ import dayjs from "dayjs";
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   const [transaction, setTransaction] = useState<TransactionWithAccount | null>(null);
   const [loading, setLoading] = useState(true);

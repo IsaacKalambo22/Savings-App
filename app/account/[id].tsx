@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator  } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { IconPicker } from "@/app/modal/account-picker";
 import { ColorPicker } from "@/app/modal/color-picker";
 import { AccountIcon } from "@/types/account";
@@ -16,8 +16,7 @@ import { reloadAccounts } from "@/lib/hydrate";
 export default function EditAccountScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

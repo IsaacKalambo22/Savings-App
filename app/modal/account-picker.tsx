@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, Modal , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal  } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { ACCOUNT_ICONS } from "@/types/account";
 
 interface IconPickerProps {
@@ -11,8 +11,7 @@ interface IconPickerProps {
 }
 
 export function IconPicker({ visible, selectedIcon, onSelect, onClose }: IconPickerProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">

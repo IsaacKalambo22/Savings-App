@@ -1,9 +1,9 @@
-import { View, Text, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert  } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { CURRENCIES } from "@/constants/currency";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { updateHousehold } from "@/features/household/services/household.service";
@@ -11,8 +11,7 @@ import { useAppStore } from "@/store/app.store";
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
   const setHouseholdId = useAppStore((s) => s.setHouseholdId);
 

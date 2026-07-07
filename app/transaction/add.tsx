@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert  } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/hooks/useTheme";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { TransactionType } from "@/types/prisma";
 import { createTransaction } from "@/features/transactions/services/transaction.service";
@@ -11,8 +11,7 @@ import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
 export default function AddTransactionScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { colors } = useTheme();
   const { activeAccounts } = useAccountStore();
 
   const transactionType = type === "withdrawal" ? TransactionType.WITHDRAWAL : TransactionType.DEPOSIT;
