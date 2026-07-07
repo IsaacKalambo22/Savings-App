@@ -1,10 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useColorScheme } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
 import { Colors } from "@/constants/colors";
 import { TransactionType } from "@/types/prisma";
-import { fromBigInt } from "@/features/transactions/services/transaction.service";
+import { TransactionWithAccount } from "@/types/transaction";
+import {
+  fromBigInt,
+  getTransaction,
+  reverseTransaction,
+  deleteTransaction,
+} from "@/features/transactions/services/transaction.service";
+import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
 import dayjs from "dayjs";
 
 export default function TransactionDetailScreen() {
@@ -13,37 +21,50 @@ export default function TransactionDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
 
-  // TODO: Fetch transaction details from store/service
-  const transaction = {
-    id,
-    type: TransactionType.DEPOSIT,
-    amount: BigInt(500000),
-    note: "Salary payment",
-    tags: ["salary"],
-    transactedAt: new Date(),
-    isReversed: false,
-    account: {
-      id: "1",
-      name: "Joint",
-      icon: "users",
-      color: "#0A63E0",
-    },
+  const [transaction, setTransaction] = useState<TransactionWithAccount | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const tx = await getTransaction(id);
+        if (mounted) setTransaction(tx);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const refresh = async () => {
+    await Promise.all([reloadAccounts(), reloadTransactions()]);
   };
 
   const handleReverse = () => {
     Alert.alert(
       "Reverse Transaction",
-      "This will create a reversal transaction. Are you sure?",
+      "This creates an opposite transaction to cancel this one out. The original is preserved. Continue?",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Reverse",
           style: "destructive",
-          onPress: () => {
-            // TODO: Call reversal service
-            console.log("Reversing transaction:", id);
-            Alert.alert("Success", "Transaction reversed");
-            router.back();
+          onPress: async () => {
+            if (busy) return;
+            try {
+              setBusy(true);
+              await reverseTransaction(id);
+              await refresh();
+              router.back();
+            } catch (err) {
+              Alert.alert("Error", err instanceof Error ? err.message : "Failed to reverse");
+            } finally {
+              setBusy(false);
+            }
           },
         },
       ]
@@ -53,17 +74,24 @@ export default function TransactionDetailScreen() {
   const handleDelete = () => {
     Alert.alert(
       "Delete Transaction",
-      "This will soft delete the transaction. Are you sure?",
+      "This soft-deletes the transaction (kept for audit history). Continue?",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            // TODO: Call delete service
-            console.log("Deleting transaction:", id);
-            Alert.alert("Success", "Transaction deleted");
-            router.back();
+          onPress: async () => {
+            if (busy) return;
+            try {
+              setBusy(true);
+              await deleteTransaction(id);
+              await refresh();
+              router.back();
+            } catch (err) {
+              Alert.alert("Error", err instanceof Error ? err.message : "Failed to delete");
+            } finally {
+              setBusy(false);
+            }
           },
         },
       ]
@@ -102,6 +130,30 @@ export default function TransactionDetailScreen() {
     return `${sign} MK ${value.toLocaleString()}`;
   };
 
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!transaction) {
+    return (
+      <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: colors.background }}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+        <Text className="text-base font-semibold mt-3" style={{ color: colors.text }}>
+          Transaction not found
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} className="mt-4">
+          <Text className="text-base font-semibold" style={{ color: colors.primary }}>
+            Go back
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
@@ -111,9 +163,7 @@ export default function TransactionDetailScreen() {
         <Text className="text-lg font-bold" style={{ color: colors.text }}>
           Transaction Details
         </Text>
-        <TouchableOpacity onPress={() => {}}>
-          <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView className="flex-1 px-4 py-4">
@@ -221,13 +271,27 @@ export default function TransactionDetailScreen() {
           </View>
         )}
 
-        {/* Actions */}
+        {/* Actions — Rule 13: corrections via reversal, never overwrite once recorded */}
         {!transaction.isReversed && (
           <View className="mt-6 gap-3">
             <TouchableOpacity
-              onPress={handleReverse}
+              onPress={() => router.push(`/transaction/edit?id=${transaction.id}`)}
               className="p-4 rounded-xl"
-              style={{ backgroundColor: colors.warning + "20", borderColor: colors.warning, borderWidth: 1 }}
+              style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
+                <Text className="ml-2 text-base font-semibold" style={{ color: colors.primary }}>
+                  Edit Transaction
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleReverse}
+              disabled={busy}
+              className="p-4 rounded-xl"
+              style={{ backgroundColor: colors.warning + "20", borderColor: colors.warning, borderWidth: 1, opacity: busy ? 0.6 : 1 }}
             >
               <View className="flex-row items-center justify-center">
                 <Ionicons name="refresh" size={20} color={colors.warning} />
@@ -239,8 +303,9 @@ export default function TransactionDetailScreen() {
 
             <TouchableOpacity
               onPress={handleDelete}
+              disabled={busy}
               className="p-4 rounded-xl"
-              style={{ backgroundColor: colors.destructive + "20", borderColor: colors.destructive, borderWidth: 1 }}
+              style={{ backgroundColor: colors.destructive + "20", borderColor: colors.destructive, borderWidth: 1, opacity: busy ? 0.6 : 1 }}
             >
               <View className="flex-row items-center justify-center">
                 <Ionicons name="trash" size={20} color={colors.destructive} />

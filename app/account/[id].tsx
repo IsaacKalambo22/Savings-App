@@ -1,21 +1,27 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { IconPicker } from "@/app/modal/account-picker";
 import { ColorPicker } from "@/app/modal/color-picker";
-import { ACCOUNT_ICONS, AccountIcon } from "@/types/account";
-import { AccountStatus } from "@/types/prisma";
+import { AccountIcon } from "@/types/account";
+import {
+  getAccountWithBalance,
+  updateAccount,
+  archiveAccount,
+} from "@/features/accounts/services/account.service";
+import { reloadAccounts } from "@/lib/hydrate";
 
-export default function AccountFormScreen() {
-  const { id } = useLocalSearchParams();
+export default function EditAccountScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
-  const isEditing = !!id;
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState<AccountIcon>("wallet");
@@ -23,18 +29,79 @@ export default function AccountFormScreen() {
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const account = await getAccountWithBalance(id);
+        if (mounted && account) {
+          setName(account.name);
+          setDescription(account.description ?? "");
+          setIcon(account.icon as AccountIcon);
+          setSelectedColor(account.color);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "Account name is required");
       return;
     }
-
-    // TODO: Call service to create/update account
-    console.log("Saving account:", { name, description, icon, color: selectedColor });
-    
-    Alert.alert("Success", isEditing ? "Account updated" : "Account created");
-    router.push("/(tabs)/accounts");
+    if (saving) return;
+    try {
+      setSaving(true);
+      await updateAccount(id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        icon,
+        color: selectedColor,
+      });
+      await reloadAccounts();
+      router.push("/(tabs)/accounts");
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to save account");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleArchive = () => {
+    Alert.alert(
+      "Archive Account",
+      "Archived accounts keep their history and stay in reports, but can't receive new transactions. You can restore them later. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Archive",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await archiveAccount(id);
+              await reloadAccounts();
+              router.push("/(tabs)/accounts");
+            } catch (err) {
+              Alert.alert("Error", err instanceof Error ? err.message : "Failed to archive");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -45,10 +112,10 @@ export default function AccountFormScreen() {
           </Text>
         </TouchableOpacity>
         <Text className="text-lg font-bold" style={{ color: colors.text }}>
-          {isEditing ? "Edit Account" : "New Account"}
+          Edit Account
         </Text>
-        <TouchableOpacity onPress={handleSave} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text className="text-base font-semibold" style={{ color: colors.primary }}>
+        <TouchableOpacity onPress={handleSave} disabled={saving} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text className="text-base font-semibold" style={{ color: colors.primary, opacity: saving ? 0.6 : 1 }}>
             Save
           </Text>
         </TouchableOpacity>
@@ -139,20 +206,19 @@ export default function AccountFormScreen() {
           />
         </View>
 
-        {/* Archive Option (only for editing) */}
-        {isEditing && (
-          <TouchableOpacity
-            className="p-4 rounded-xl mt-4"
-            style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
-          >
-            <View className="flex-row items-center">
-              <Ionicons name="archive-outline" size={20} color={colors.destructive} />
-              <Text className="ml-3 text-base font-semibold" style={{ color: colors.destructive }}>
-                Archive Account
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
+        {/* Archive (Rule 4: archive, never delete accounts with history) */}
+        <TouchableOpacity
+          onPress={handleArchive}
+          className="p-4 rounded-xl mt-4"
+          style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="archive-outline" size={20} color={colors.destructive} />
+            <Text className="ml-3 text-base font-semibold" style={{ color: colors.destructive }}>
+              Archive Account
+            </Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
 
       <IconPicker

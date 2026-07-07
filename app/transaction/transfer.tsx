@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
+import { createTransfer } from "@/features/transactions/services/transaction.service";
+import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
 
 export default function TransferScreen() {
   const router = useRouter();
@@ -16,9 +18,10 @@ export default function TransferScreen() {
   const [toAccountId, setToAccountId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [transactedAt, setTransactedAt] = useState(new Date());
+  const [transactedAt] = useState(new Date());
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!fromAccountId) {
       Alert.alert("Error", "Please select source account");
       return;
@@ -35,18 +38,24 @@ export default function TransferScreen() {
       Alert.alert("Error", "Please enter a valid amount");
       return;
     }
+    if (saving) return;
 
-    // TODO: Call service to create transfer
-    console.log("Creating transfer:", {
-      fromAccountId,
-      toAccountId,
-      amount: parseFloat(amount),
-      note,
-      transactedAt,
-    });
-
-    Alert.alert("Success", "Transfer recorded");
-    router.back();
+    try {
+      setSaving(true);
+      await createTransfer({
+        fromAccountId,
+        toAccountId,
+        amount: parseFloat(amount),
+        note: note.trim() || undefined,
+        transactedAt,
+      });
+      await Promise.all([reloadAccounts(), reloadTransactions()]);
+      router.back();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to record transfer");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const swapAccounts = () => {

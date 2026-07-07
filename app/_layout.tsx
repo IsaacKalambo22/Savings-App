@@ -55,13 +55,13 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding/index" options={{ animation: "fade" }} />
-        <Stack.Screen name="account/[id]" options={{ headerShown: true, title: "" }} />
-        <Stack.Screen name="transaction/add" options={{ presentation: "modal", headerShown: true, title: "Add Transaction" }} />
-        <Stack.Screen name="transaction/edit" options={{ presentation: "modal", headerShown: true, title: "Edit Transaction" }} />
-        <Stack.Screen name="transaction/transfer" options={{ presentation: "modal", headerShown: true, title: "Transfer" }} />
-        <Stack.Screen name="modal/account-picker" options={{ presentation: "modal", headerShown: true, title: "Select Account" }} />
-        <Stack.Screen name="modal/icon-picker" options={{ presentation: "modal", headerShown: true, title: "Select Icon" }} />
-        <Stack.Screen name="modal/color-picker" options={{ presentation: "modal", headerShown: true, title: "Select Color" }} />
+        <Stack.Screen name="account/new" />
+        <Stack.Screen name="account/[id]" />
+        <Stack.Screen name="transaction/add" options={{ presentation: "modal" }} />
+        <Stack.Screen name="transaction/edit" options={{ presentation: "modal" }} />
+        <Stack.Screen name="transaction/[id]" options={{ presentation: "modal" }} />
+        <Stack.Screen name="transaction/transfer" options={{ presentation: "modal" }} />
+        <Stack.Screen name="modal/color-picker" options={{ presentation: "modal" }} />
       </Stack>
     </QueryClientProvider>
   );

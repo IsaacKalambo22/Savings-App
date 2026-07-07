@@ -71,6 +71,7 @@ export default function AccountsScreen() {
             {activeAccounts.map((account) => (
               <TouchableOpacity
                 key={account.id}
+                onPress={() => router.push(`/account/${account.id}`)}
                 className="p-4 rounded-xl"
                 style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
               >
