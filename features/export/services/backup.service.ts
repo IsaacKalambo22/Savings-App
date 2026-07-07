@@ -1,38 +1,54 @@
-import { PrismaClient } from "@/types/prisma";
 import { BackupMetadata } from "@/types/export";
-import * as FileSystem from "expo-file-system";
+import { bootstrapDatabase, getDb } from "@/lib/db";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import dayjs from "dayjs";
-
-const prisma = new PrismaClient();
 
 /**
  * Database Backup Service
  * Creates and restores database backups
  */
 
+// Tables included in a full backup, in FK-safe restore order.
+const BACKUP_TABLES = [
+  "households",
+  "settings",
+  "household_members",
+  "accounts",
+  "transactions",
+  "transfers",
+  "savings_goals",
+] as const;
+
+async function dumpTable(table: string): Promise<any[]> {
+  const db = await getDb();
+  return db.getAllAsync<any>(`SELECT * FROM ${table}`);
+}
+
 /**
  * Create a full database backup
  */
 export async function createBackup(): Promise<{ success: boolean; filePath?: string; metadata?: BackupMetadata; error?: string }> {
   try {
-    // Fetch all data
-    const accounts = await prisma.account.findMany({ where: { deletedAt: null } });
-    const transactions = await prisma.transaction.findMany({ where: { deletedAt: null } });
-    const transfers = await prisma.transfer.findMany();
-    const households = await prisma.household.findMany({ where: { deletedAt: null } });
-    const settings = await prisma.settings.findMany();
+    await bootstrapDatabase();
 
-    // Create backup object
+    const tables: Record<string, any[]> = {};
+    for (const table of BACKUP_TABLES) {
+      tables[table] = await dumpTable(table);
+    }
+
+    // Create backup object (raw SQLite rows keep money as integer tambala).
     const backup = {
-      version: "1.0",
+      version: "2.0",
       createdAt: new Date().toISOString(),
+      tables,
+      // Back-compat aliases for older readers.
       data: {
-        households,
-        accounts,
-        transactions,
-        transfers,
-        settings,
+        households: tables.households,
+        accounts: tables.accounts,
+        transactions: tables.transactions,
+        transfers: tables.transfers,
+        settings: tables.settings,
       },
     };
 
@@ -48,9 +64,9 @@ export async function createBackup(): Promise<{ success: boolean; filePath?: str
       id: filename.replace(".json", ""),
       createdAt: new Date(),
       recordCount: {
-        accounts: accounts.length,
-        transactions: transactions.length,
-        transfers: transfers.length,
+        accounts: tables.accounts.length,
+        transactions: tables.transactions.length,
+        transfers: tables.transfers.length,
       },
       fileSize: backupJson.length,
     };
@@ -73,56 +89,35 @@ export async function createBackup(): Promise<{ success: boolean; filePath?: str
  */
 export async function restoreBackup(filePath: string): Promise<{ success: boolean; error?: string; restoredCount?: any }> {
   try {
+    await bootstrapDatabase();
     const backupJson = await FileSystem.readAsStringAsync(filePath);
     const backup = JSON.parse(backupJson);
 
-    // Validate backup format
-    if (!backup.version || !backup.data) {
+    // Accept both v2 (tables) and legacy v1 (data) formats.
+    const tables: Record<string, any[]> =
+      backup.tables ?? backup.data ?? null;
+    if (!backup.version || !tables) {
       throw new Error("Invalid backup format");
     }
 
-    // Restore data (in transaction for consistency)
-    await prisma.$transaction(async (tx) => {
-      // Clear existing data
-      await tx.transfer.deleteMany();
-      await tx.transaction.deleteMany();
-      await tx.account.deleteMany();
-      await tx.household.deleteMany();
-      await tx.settings.deleteMany();
+    const db = await getDb();
+    const restoredCount: Record<string, number> = {};
 
-      // Restore households
-      for (const household of backup.data.households) {
-        await tx.household.create({ data: household });
+    await db.withTransactionAsync(async () => {
+      // Clear existing data (reverse FK order).
+      for (const table of [...BACKUP_TABLES].reverse()) {
+        await db.runAsync(`DELETE FROM ${table}`);
       }
 
-      // Restore accounts
-      for (const account of backup.data.accounts) {
-        await tx.account.create({ data: account });
-      }
-
-      // Restore transactions
-      for (const transaction of backup.data.transactions) {
-        await tx.transaction.create({ data: transaction });
-      }
-
-      // Restore transfers
-      for (const transfer of backup.data.transfers) {
-        await tx.transfer.create({ data: transfer });
-      }
-
-      // Restore settings
-      for (const setting of backup.data.settings) {
-        await tx.settings.create({ data: setting });
+      // Restore each table from its rows.
+      for (const table of BACKUP_TABLES) {
+        const rows = tables[table] ?? [];
+        for (const row of rows) {
+          await insertRow(table, row);
+        }
+        restoredCount[table] = rows.length;
       }
     });
-
-    const restoredCount = {
-      households: backup.data.households.length,
-      accounts: backup.data.accounts.length,
-      transactions: backup.data.transactions.length,
-      transfers: backup.data.transfers.length,
-      settings: backup.data.settings.length,
-    };
 
     return {
       success: true,
@@ -134,6 +129,19 @@ export async function restoreBackup(filePath: string): Promise<{ success: boolea
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+/** Insert a raw row object into a table by its own column keys. */
+async function insertRow(table: string, row: Record<string, any>): Promise<void> {
+  const db = await getDb();
+  const columns = Object.keys(row);
+  if (columns.length === 0) return;
+  const placeholders = columns.map(() => "?").join(", ");
+  const values = columns.map((c) => row[c]);
+  await db.runAsync(
+    `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`,
+    values
+  );
 }
 
 /**

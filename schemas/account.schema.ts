@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AccountStatus } from "@prisma/client";
+import { AccountStatus } from "@/types/prisma";
 import { ACCOUNT_ICONS } from "@/types/account";
 
 export const accountSchema = z.object({

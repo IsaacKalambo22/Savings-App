@@ -34,7 +34,9 @@
         {
           "faceIDPermission": "Allow NestKeep to use Face ID to unlock the app."
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

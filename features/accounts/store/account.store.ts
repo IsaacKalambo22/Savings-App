@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Account, AccountStatus } from "@prisma/client";
+import { Account, AccountStatus } from "@/types/prisma";
 import { AccountWithBalance } from "@/types/account";
 
 interface AccountState {

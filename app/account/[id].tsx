@@ -7,7 +7,7 @@ import { Colors } from "@/constants/colors";
 import { IconPicker } from "@/app/modal/account-picker";
 import { ColorPicker } from "@/app/modal/color-picker";
 import { ACCOUNT_ICONS, AccountIcon } from "@/types/account";
-import { AccountStatus } from "@prisma/client";
+import { AccountStatus } from "@/types/prisma";
 
 export default function AccountFormScreen() {
   const { id } = useLocalSearchParams();

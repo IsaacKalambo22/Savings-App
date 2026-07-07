@@ -6,7 +6,8 @@ import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { TransactionType } from "@/types/prisma";
-import { toBigInt } from "@/features/transactions/services/transaction.service";
+import { createTransaction } from "@/features/transactions/services/transaction.service";
+import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
 
 export default function AddTransactionScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
@@ -19,9 +20,10 @@ export default function AddTransactionScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [transactedAt, setTransactedAt] = useState(new Date());
+  const [transactedAt] = useState(new Date());
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedAccountId) {
       Alert.alert("Error", "Please select an account");
       return;
@@ -30,18 +32,24 @@ export default function AddTransactionScreen() {
       Alert.alert("Error", "Please enter a valid amount");
       return;
     }
+    if (saving) return;
 
-    // TODO: Call service to create transaction
-    console.log("Creating transaction:", {
-      accountId: selectedAccountId,
-      type: transactionType,
-      amount: parseFloat(amount),
-      note,
-      transactedAt,
-    });
-
-    Alert.alert("Success", "Transaction recorded");
-    router.back();
+    try {
+      setSaving(true);
+      await createTransaction({
+        accountId: selectedAccountId,
+        type: transactionType,
+        amount: parseFloat(amount),
+        note: note.trim() || undefined,
+        transactedAt,
+      });
+      await Promise.all([reloadAccounts(), reloadTransactions()]);
+      router.back();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to save transaction");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

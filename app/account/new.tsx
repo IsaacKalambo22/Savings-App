@@ -7,6 +7,7 @@ import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { createAccount as createAccountService, ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { ACCOUNT_ICONS, AccountIcon } from "@/types/account";
+import { AccountStatus } from "@/types/prisma";
 import { useState } from "react";
 
 export default function NewAccountScreen() {
@@ -35,7 +36,7 @@ export default function NewAccountScreen() {
         description: description.trim() || undefined,
         icon,
         color,
-        status: "ACTIVE",
+        status: AccountStatus.ACTIVE,
       });
       
       // Add to store

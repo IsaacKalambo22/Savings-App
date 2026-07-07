@@ -1,6 +1,6 @@
 import "../global.css";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,20 +9,39 @@ import { useColorScheme } from "react-native";
 import { queryClient } from "@/lib/query-client";
 import { useUIStore } from "@/store/ui.store";
 import { Colors } from "@/constants/colors";
+import { initializeApp } from "@/lib/hydrate";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const systemScheme = useColorScheme();
   const theme = useUIStore((s) => s.theme);
+  const [ready, setReady] = useState(false);
 
-  const resolvedScheme =
-    theme === "system" ? (systemScheme ?? "light") : theme;
+  const resolvedScheme: "light" | "dark" =
+    (theme === "system" ? systemScheme : theme) === "dark" ? "dark" : "light";
   const colors = Colors[resolvedScheme];
 
   useEffect(() => {
-    SplashScreen.hideAsync();
+    let mounted = true;
+    (async () => {
+      try {
+        await initializeApp();
+      } catch (err) {
+        console.error("App initialization failed:", err);
+      } finally {
+        if (mounted) setReady(true);
+        await SplashScreen.hideAsync();
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  if (!ready) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

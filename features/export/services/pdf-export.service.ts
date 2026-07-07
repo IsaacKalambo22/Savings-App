@@ -1,11 +1,9 @@
-import { PrismaClient } from "@/types/prisma";
 import { ExportOptions, ExportResult } from "@/types/export";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
-import * as FileSystem from "expo-file-system";
+import { getExportAccounts, getExportTransactions } from "./export-data";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import dayjs from "dayjs";
-
-const prisma = new PrismaClient();
 
 /**
  * PDF Export Service
@@ -17,29 +15,7 @@ const prisma = new PrismaClient();
  * Export transactions to PDF format
  */
 async function exportTransactionsToPDF(options: ExportOptions): Promise<string> {
-  const where: any = {
-    deletedAt: null,
-  };
-
-  if (options.accountId) {
-    where.accountId = options.accountId;
-  }
-
-  if (options.startDate || options.endDate) {
-    where.transactedAt = {};
-    if (options.startDate) {
-      where.transactedAt.gte = options.startDate;
-    }
-    if (options.endDate) {
-      where.transactedAt.lte = options.endDate;
-    }
-  }
-
-  const transactions = await prisma.transaction.findMany({
-    where,
-    include: { account: true },
-    orderBy: { transactedAt: "desc" },
-  });
+  const transactions = await getExportTransactions(options);
 
   // HTML content for PDF
   let html = `
@@ -112,17 +88,7 @@ async function exportTransactionsToPDF(options: ExportOptions): Promise<string> 
  * Export accounts to PDF format
  */
 async function exportAccountsToPDF(): Promise<string> {
-  const accounts = await prisma.account.findMany({
-    where: { deletedAt: null },
-    include: {
-      _count: {
-        select: { transactions: true },
-      },
-      transactions: {
-        where: { deletedAt: null, isReversed: false },
-      },
-    },
-  });
+  const accounts = await getExportAccounts();
 
   let html = `
     <!DOCTYPE html>
@@ -157,15 +123,8 @@ async function exportAccountsToPDF(): Promise<string> {
   accounts.forEach((a) => {
     const name = a.name;
     const description = a.description || "-";
-    // Calculate balance from transactions
-    const deposits = a.transactions
-      .filter((t: any) => t.type === "DEPOSIT")
-      .reduce((sum: bigint, t: any) => sum + t.amount, BigInt(0));
-    const withdrawals = a.transactions
-      .filter((t: any) => t.type === "WITHDRAWAL")
-      .reduce((sum: bigint, t: any) => sum + t.amount, BigInt(0));
-    const balance = fromBigInt(deposits - withdrawals);
-    const transactionCount = a._count.transactions;
+    const balance = fromBigInt(a.balance);
+    const transactionCount = a.transactionCount;
     const createdAt = dayjs(a.createdAt).format("DD/MM/YYYY");
 
     html += `

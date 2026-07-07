@@ -1,198 +1,215 @@
-import { PrismaClient, Account, AccountStatus, TransactionType } from "@prisma/client";
+import { Account, AccountStatus, SyncStatus, TransactionType } from "@/types/prisma";
 import { AccountWithBalance, AccountFormData } from "@/types/account";
-
-const prisma = new PrismaClient();
+import {
+  DEFAULT_HOUSEHOLD_ID,
+  bootstrapDatabase,
+  getDb,
+  mapAccount,
+  nowIso,
+} from "@/lib/db";
+import { generateId } from "@/lib/utils";
+import { addToSyncQueue } from "@/features/sync/services/sync-queue.service";
 
 /**
- * Ensure default household exists
+ * Ensure the default household exists.
+ * Bootstrapping (schema + seed) is idempotent, so this simply guarantees the
+ * database is ready and returns the default household id.
  */
 export async function ensureDefaultHousehold(): Promise<string> {
-  const DEFAULT_HOUSEHOLD_ID = "default-household";
-  
-  const existing = await prisma.household.findUnique({
-    where: { id: DEFAULT_HOUSEHOLD_ID },
-  });
-
-  if (existing) {
-    return existing.id;
-  }
-
-  // Create default household
-  const household = await prisma.household.create({
-    data: {
-      id: DEFAULT_HOUSEHOLD_ID,
-      name: "My Household",
-    },
-  });
-
-  // Create default settings
-  await prisma.settings.create({
-    data: {
-      householdId: household.id,
-      currency: "MWK",
-    },
-  });
-
-  return household.id;
+  await bootstrapDatabase();
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ id: string }>(
+    "SELECT id FROM households WHERE deletedAt IS NULL ORDER BY createdAt ASC LIMIT 1"
+  );
+  return row?.id ?? DEFAULT_HOUSEHOLD_ID;
 }
 
 /**
- * Calculate account balance from transaction history
+ * Calculate account balance from transaction history.
  * Rule 1: Transactions are the source of truth
  * Rule 6: Money stored as BigInt (tambala)
  */
 export async function calculateAccountBalance(accountId: string): Promise<bigint> {
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      accountId,
-      deletedAt: null,
-      isReversed: false,
-    },
-  });
-
-  const deposits = transactions
-    .filter((t) => t.type === TransactionType.DEPOSIT)
-    .reduce((sum, t) => sum + t.amount, BigInt(0));
-
-  const withdrawals = transactions
-    .filter((t) => t.type === TransactionType.WITHDRAWAL)
-    .reduce((sum, t) => sum + t.amount, BigInt(0));
-
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ deposits: number | null; withdrawals: number | null }>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN type = ? THEN amount ELSE 0 END), 0) AS deposits,
+       COALESCE(SUM(CASE WHEN type = ? THEN amount ELSE 0 END), 0) AS withdrawals
+     FROM transactions
+     WHERE accountId = ? AND deletedAt IS NULL AND isReversed = 0`,
+    [TransactionType.DEPOSIT, TransactionType.WITHDRAWAL, accountId]
+  );
+  const deposits = BigInt(row?.deposits ?? 0);
+  const withdrawals = BigInt(row?.withdrawals ?? 0);
   return deposits - withdrawals;
 }
 
+async function countTransactions(accountId: string): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM transactions WHERE accountId = ? AND deletedAt IS NULL",
+    [accountId]
+  );
+  return row?.count ?? 0;
+}
+
+async function withBalance(account: Account): Promise<AccountWithBalance> {
+  const [balance, transactionCount] = await Promise.all([
+    calculateAccountBalance(account.id),
+    countTransactions(account.id),
+  ]);
+  return { ...account, balance, transactionCount };
+}
+
 /**
- * Get all accounts with calculated balances
+ * Get all accounts with calculated balances.
  */
 export async function getAccountsWithBalance(householdId: string): Promise<AccountWithBalance[]> {
-  const accounts = await prisma.account.findMany({
-    where: {
-      householdId,
-      deletedAt: null,
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-  });
-
-  const accountsWithBalance = await Promise.all(
-    accounts.map(async (account) => {
-      const balance = await calculateAccountBalance(account.id);
-      const transactionCount = await prisma.transaction.count({
-        where: {
-          accountId: account.id,
-          deletedAt: null,
-        },
-      });
-
-      return {
-        ...account,
-        balance,
-        transactionCount,
-      };
-    })
+  const db = await getDb();
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM accounts
+     WHERE householdId = ? AND deletedAt IS NULL
+     ORDER BY sortOrder ASC, createdAt DESC`,
+    [householdId]
   );
-
-  return accountsWithBalance;
+  return Promise.all(rows.map((r) => withBalance(mapAccount(r))));
 }
 
 /**
- * Get a single account with balance
+ * Get a single account with balance.
  */
 export async function getAccountWithBalance(id: string): Promise<AccountWithBalance | null> {
-  const account = await prisma.account.findUnique({
-    where: { id, deletedAt: null },
-  });
-
-  if (!account) return null;
-
-  const balance = await calculateAccountBalance(account.id);
-  const transactionCount = await prisma.transaction.count({
-    where: {
-      accountId: account.id,
-      deletedAt: null,
-    },
-  });
-
-  return {
-    ...account,
-    balance,
-    transactionCount,
-  };
+  const db = await getDb();
+  const row = await db.getFirstAsync<any>(
+    "SELECT * FROM accounts WHERE id = ? AND deletedAt IS NULL",
+    [id]
+  );
+  if (!row) return null;
+  return withBalance(mapAccount(row));
 }
 
 /**
- * Create a new account
+ * Create a new account.
  */
 export async function createAccount(
   householdId: string,
   data: AccountFormData
 ): Promise<Account> {
-  const maxSortOrder = await prisma.account.findFirst({
-    where: { householdId, deletedAt: null },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
+  const db = await getDb();
 
-  const sortOrder = (maxSortOrder?.sortOrder ?? -1) + 1;
+  const max = await db.getFirstAsync<{ sortOrder: number | null }>(
+    "SELECT MAX(sortOrder) AS sortOrder FROM accounts WHERE householdId = ? AND deletedAt IS NULL",
+    [householdId]
+  );
+  const sortOrder = (max?.sortOrder ?? -1) + 1;
 
-  return prisma.account.create({
-    data: {
-      ...data,
+  const id = generateId();
+  const now = nowIso();
+
+  await db.runAsync(
+    `INSERT INTO accounts
+       (id, householdId, name, description, icon, color, status, sortOrder, createdAt, updatedAt, syncStatus)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
       householdId,
+      data.name,
+      data.description ?? null,
+      data.icon,
+      data.color,
+      data.status ?? AccountStatus.ACTIVE,
       sortOrder,
-    },
-  });
+      now,
+      now,
+      SyncStatus.PENDING,
+    ]
+  );
+
+  addToSyncQueue("create", "account", id, { ...data, householdId, sortOrder });
+
+  const created = await getAccountWithBalance(id);
+  return created!;
 }
 
 /**
- * Update an account
+ * Update an account.
  */
 export async function updateAccount(
   id: string,
   data: Partial<AccountFormData>
 ): Promise<Account> {
-  return prisma.account.update({
-    where: { id },
-    data,
-  });
+  const db = await getDb();
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (data.name !== undefined) {
+    fields.push("name = ?");
+    values.push(data.name);
+  }
+  if (data.description !== undefined) {
+    fields.push("description = ?");
+    values.push(data.description);
+  }
+  if (data.icon !== undefined) {
+    fields.push("icon = ?");
+    values.push(data.icon);
+  }
+  if (data.color !== undefined) {
+    fields.push("color = ?");
+    values.push(data.color);
+  }
+  if (data.status !== undefined) {
+    fields.push("status = ?");
+    values.push(data.status);
+  }
+
+  fields.push("updatedAt = ?", "syncStatus = ?");
+  values.push(nowIso(), SyncStatus.PENDING, id);
+
+  await db.runAsync(`UPDATE accounts SET ${fields.join(", ")} WHERE id = ?`, values);
+  addToSyncQueue("update", "account", id, data);
+
+  const updated = await getAccountWithBalance(id);
+  return updated!;
 }
 
 /**
- * Archive an account (soft delete)
+ * Archive an account (soft delete).
  * Rule 4: Accounts with history are archived, not deleted
  */
-export async function archiveAccount(id: string): Promise<Account> {
-  return prisma.account.update({
-    where: { id },
-    data: {
-      status: AccountStatus.ARCHIVED,
-      deletedAt: new Date(),
-    },
-  });
+export async function archiveAccount(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE accounts SET status = ?, updatedAt = ?, syncStatus = ? WHERE id = ?",
+    [AccountStatus.ARCHIVED, nowIso(), SyncStatus.PENDING, id]
+  );
+  addToSyncQueue("update", "account", id, { status: AccountStatus.ARCHIVED });
 }
 
 /**
- * Restore an archived account
+ * Restore an archived account.
  */
-export async function restoreAccount(id: string): Promise<Account> {
-  return prisma.account.update({
-    where: { id },
-    data: {
-      status: AccountStatus.ACTIVE,
-      deletedAt: null,
-    },
-  });
+export async function restoreAccount(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE accounts SET status = ?, updatedAt = ?, syncStatus = ? WHERE id = ?",
+    [AccountStatus.ACTIVE, nowIso(), SyncStatus.PENDING, id]
+  );
+  addToSyncQueue("update", "account", id, { status: AccountStatus.ACTIVE });
 }
 
 /**
- * Reorder accounts
+ * Reorder accounts.
  */
 export async function reorderAccounts(accountIds: string[]): Promise<void> {
-  await prisma.$transaction(
-    accountIds.map((id, index) =>
-      prisma.account.update({
-        where: { id },
-        data: { sortOrder: index },
-      })
-    )
-  );
+  const db = await getDb();
+  const now = nowIso();
+  await db.withTransactionAsync(async () => {
+    for (let index = 0; index < accountIds.length; index++) {
+      await db.runAsync(
+        "UPDATE accounts SET sortOrder = ?, updatedAt = ?, syncStatus = ? WHERE id = ?",
+        [index, now, SyncStatus.PENDING, accountIds[index]]
+      );
+    }
+  });
 }

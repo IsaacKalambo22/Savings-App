@@ -1,9 +1,8 @@
-import { createMMKV } from "react-native-mmkv";
+import { kv as syncStorage } from "@/lib/kv";
 import { SyncQueueItem, SyncOperation } from "@/types/sync";
-import { v4 as uuidv4 } from "uuid";
+import { generateId } from "@/lib/utils";
 
 const SYNC_QUEUE_KEY = "sync_queue";
-const syncStorage = createMMKV();
 
 /**
  * Sync Queue Service
@@ -46,7 +45,7 @@ export function addToSyncQueue(
 ): SyncQueueItem {
   const queue = getSyncQueue();
   const item: SyncQueueItem = {
-    id: uuidv4(),
+    id: generateId(),
     operation,
     entityType,
     entityId,

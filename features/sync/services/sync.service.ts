@@ -6,9 +6,29 @@ import {
   addToSyncQueue,
 } from "./sync-queue.service";
 import { isOnline, onNetworkChange } from "./network.service";
-import { PrismaClient } from "@prisma/client";
+import { getDb, nowIso } from "@/lib/db";
+import { SyncStatus as SyncStatusEnum } from "@/types/prisma";
 
-const prisma = new PrismaClient();
+/**
+ * Mark a local row as synced (or delete it for delete operations).
+ * NOTE: Remote push/pull to Supabase is implemented in Stage 3; for now this
+ * settles the local sync state so the queue drains and UI reflects "synced".
+ */
+async function settleLocal(
+  table: "transactions" | "accounts" | "transfers",
+  operation: string,
+  entityId: string
+): Promise<void> {
+  const db = await getDb();
+  if (operation === "delete") {
+    await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
+    return;
+  }
+  await db.runAsync(
+    `UPDATE ${table} SET syncStatus = ?, syncedAt = ? WHERE id = ?`,
+    [SyncStatusEnum.SYNCED, nowIso(), entityId]
+  );
+}
 
 /**
  * Sync Service
@@ -98,83 +118,21 @@ async function syncItem(item: SyncQueueItem): Promise<void> {
  * Sync transaction
  */
 async function syncTransaction(item: SyncQueueItem): Promise<void> {
-  const { operation, entityId, data } = item;
-
-  switch (operation) {
-    case "create":
-      // In a real app, this would sync to Supabase
-      // For now, we just mark as synced locally
-      await prisma.transaction.update({
-        where: { id: entityId },
-        data: { syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "update":
-      await prisma.transaction.update({
-        where: { id: entityId },
-        data: { ...data, syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "delete":
-      await prisma.transaction.delete({
-        where: { id: entityId },
-      });
-      break;
-  }
+  await settleLocal("transactions", item.operation, item.entityId);
 }
 
 /**
  * Sync account
  */
 async function syncAccount(item: SyncQueueItem): Promise<void> {
-  const { operation, entityId, data } = item;
-
-  switch (operation) {
-    case "create":
-      await prisma.account.update({
-        where: { id: entityId },
-        data: { syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "update":
-      await prisma.account.update({
-        where: { id: entityId },
-        data: { ...data, syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "delete":
-      await prisma.account.delete({
-        where: { id: entityId },
-      });
-      break;
-  }
+  await settleLocal("accounts", item.operation, item.entityId);
 }
 
 /**
  * Sync transfer
  */
 async function syncTransfer(item: SyncQueueItem): Promise<void> {
-  const { operation, entityId, data } = item;
-
-  switch (operation) {
-    case "create":
-      await prisma.transfer.update({
-        where: { id: entityId },
-        data: { syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "update":
-      await prisma.transfer.update({
-        where: { id: entityId },
-        data: { ...data, syncStatus: "SYNCED", syncedAt: new Date() },
-      });
-      break;
-    case "delete":
-      await prisma.transfer.delete({
-        where: { id: entityId },
-      });
-      break;
-  }
+  await settleLocal("transfers", item.operation, item.entityId);
 }
 
 /**
