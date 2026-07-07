@@ -6,6 +6,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { createTransfer } from "@/features/transactions/services/transaction.service";
 import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
+import { DateTimeField } from "@/components/datetime-field";
 
 export default function TransferScreen() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function TransferScreen() {
   const [toAccountId, setToAccountId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [transactedAt] = useState(new Date());
+  const [transactedAt, setTransactedAt] = useState(new Date());
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -199,19 +200,12 @@ export default function TransferScreen() {
           />
         </View>
 
-        {/* Date */}
+        {/* Date & Time */}
         <View className="mb-4">
           <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-            Date
+            Date & Time
           </Text>
-          <TouchableOpacity
-            className="p-4 rounded-xl"
-            style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
-          >
-            <Text className="text-base" style={{ color: colors.text }}>
-              {transactedAt.toLocaleDateString()}
-            </Text>
-          </TouchableOpacity>
+          <DateTimeField value={transactedAt} onChange={setTransactedAt} maximumDate={new Date()} />
         </View>
 
         {/* Summary */}

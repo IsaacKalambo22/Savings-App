@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityInd
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
+import { DateTimeField } from "@/components/datetime-field";
 import { TransactionType } from "@/types/prisma";
 import { TransactionWithAccount } from "@/types/transaction";
 import {
@@ -20,6 +21,7 @@ export default function EditTransactionScreen() {
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [transactedAt, setTransactedAt] = useState(new Date());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function EditTransactionScreen() {
           setTransaction(tx);
           setAmount(String(fromBigInt(tx.amount)));
           setNote(tx.note ?? "");
+          setTransactedAt(new Date(tx.transactedAt));
         }
       } finally {
         if (mounted) setLoading(false);
@@ -52,6 +55,7 @@ export default function EditTransactionScreen() {
       await updateTransaction(id, {
         amount: parseFloat(amount),
         note: note.trim() || undefined,
+        transactedAt,
       });
       await Promise.all([reloadAccounts(), reloadTransactions()]);
       router.back();
@@ -160,6 +164,14 @@ export default function EditTransactionScreen() {
             className="p-4 rounded-xl"
             style={{ backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1, minHeight: 100 }}
           />
+        </View>
+
+        {/* Date & Time */}
+        <View className="mb-4">
+          <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+            Date & Time
+          </Text>
+          <DateTimeField value={transactedAt} onChange={setTransactedAt} maximumDate={new Date()} />
         </View>
 
         <Text className="text-xs mt-2" style={{ color: colors.textTertiary }}>
