@@ -1,11 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity , useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { useRouter , useFocusEffect } from "expo-router";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { getAccountsWithBalance, ensureDefaultHousehold } from "@/features/accounts/services/account.service";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useCallback } from "react";
 

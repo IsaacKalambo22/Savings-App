@@ -1,8 +1,7 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput , useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { createAccount as createAccountService, ensureDefaultHousehold } from "@/features/accounts/services/account.service";

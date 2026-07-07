@@ -8,22 +8,18 @@ import {
 import { isOnline, onNetworkChange } from "./network.service";
 import { getDb, nowIso } from "@/lib/db";
 import { SyncStatus as SyncStatusEnum } from "@/types/prisma";
+import { pushEntity } from "./supabase-sync";
 
 /**
- * Mark a local row as synced (or delete it for delete operations).
- * NOTE: Remote push/pull to Supabase is implemented in Stage 3; for now this
- * settles the local sync state so the queue drains and UI reflects "synced".
+ * Mark a local row as synced. Deletes in NestKeep are soft (Rule 2) — the row
+ * stays with deletedAt set — so this only updates sync bookkeeping and never
+ * removes the local row.
  */
-async function settleLocal(
+async function markSynced(
   table: "transactions" | "accounts" | "transfers",
-  operation: string,
   entityId: string
 ): Promise<void> {
   const db = await getDb();
-  if (operation === "delete") {
-    await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
-    return;
-  }
   await db.runAsync(
     `UPDATE ${table} SET syncStatus = ?, syncedAt = ? WHERE id = ?`,
     [SyncStatusEnum.SYNCED, nowIso(), entityId]
@@ -115,24 +111,22 @@ async function syncItem(item: SyncQueueItem): Promise<void> {
 }
 
 /**
- * Sync transaction
+ * Sync a transaction: push to Supabase (best-effort), then mark synced locally.
+ * A push failure throws so syncItem records the retry.
  */
 async function syncTransaction(item: SyncQueueItem): Promise<void> {
-  await settleLocal("transactions", item.operation, item.entityId);
+  await pushEntity("transaction", item.entityId);
+  await markSynced("transactions", item.entityId);
 }
 
-/**
- * Sync account
- */
 async function syncAccount(item: SyncQueueItem): Promise<void> {
-  await settleLocal("accounts", item.operation, item.entityId);
+  await pushEntity("account", item.entityId);
+  await markSynced("accounts", item.entityId);
 }
 
-/**
- * Sync transfer
- */
 async function syncTransfer(item: SyncQueueItem): Promise<void> {
-  await settleLocal("transfers", item.operation, item.entityId);
+  await pushEntity("transfer", item.entityId);
+  await markSynced("transfers", item.entityId);
 }
 
 /**

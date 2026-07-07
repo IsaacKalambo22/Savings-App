@@ -159,12 +159,12 @@ export function generateTransferReport(
   accounts: AccountWithBalance[]
 ): TransferReport {
   // Group transactions by transfer pairs (withdrawal + deposit)
-  const transferPairs: Array<{
+  const transferPairs: {
     fromAccount: AccountWithBalance;
     toAccount: AccountWithBalance;
     amount: number;
     date: Date;
-  }> = [];
+  }[] = [];
 
   const byAccount: Record<string, number> = {};
 

@@ -1,8 +1,7 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { TransactionType } from "@/types/prisma";

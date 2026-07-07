@@ -1,7 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity , useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useReportStore } from "@/features/reports/store/report.store";
 import { useAccountStore } from "@/features/accounts/store/account.store";
@@ -14,16 +13,43 @@ import {
   generateSavingsGrowth,
   formatReportCurrency,
 } from "@/features/reports/services/report.service";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
+import { LineChart, GroupedBarChart, DonutChart } from "@/components/charts";
+import { fromBigInt } from "@/features/transactions/services/transaction.service";
 
 export default function ReportsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
-  const { monthlySummaries, setMonthlySummaries, setAccountSummaries, setDepositReport, setWithdrawalReport, setSavingsGrowth } = useReportStore();
+  const { monthlySummaries, savingsGrowth, setMonthlySummaries, setAccountSummaries, setDepositReport, setWithdrawalReport, setSavingsGrowth } = useReportStore();
   const { activeAccounts } = useAccountStore();
   const { filteredTransactions } = useTransactionStore();
   const [selectedReport, setSelectedReport] = useState<string>("monthly");
+
+  // Savings growth (line) — running balance per month, chronological.
+  const growth = useMemo(() => {
+    const points = savingsGrowth.slice(-6);
+    return {
+      data: points.map((p) => p.balance),
+      labels: points.map((p) => dayjs(p.date).format("MMM")),
+    };
+  }, [savingsGrowth]);
+
+  // Monthly deposits vs withdrawals (grouped bars) — last 6 months chronological.
+  const monthlyBars = useMemo(() => {
+    const months = [...monthlySummaries].sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
+    return {
+      groups: months.map((m) => [m.totalDeposits, m.totalWithdrawals]),
+      labels: months.map((m) => dayjs(m.month).format("MMM")),
+    };
+  }, [monthlySummaries]);
+
+  // Account distribution (donut) — accounts with a positive balance.
+  const distribution = useMemo(() => {
+    return activeAccounts
+      .map((a) => ({ value: Math.max(0, fromBigInt(a.balance)), color: a.color, name: a.name }))
+      .filter((s) => s.value > 0);
+  }, [activeAccounts]);
 
   useEffect(() => {
     const loadReports = () => {
@@ -94,6 +120,93 @@ export default function ReportsScreen() {
           </View>
         ) : (
           <>
+            {/* Savings Growth */}
+            {growth.data.length > 0 && (
+              <View className="mb-4">
+                <Text className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                  SAVINGS GROWTH
+                </Text>
+                <View
+                  className="p-4 rounded-xl"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+                >
+                  <LineChart
+                    data={growth.data}
+                    labels={growth.labels}
+                    color={colors.primary}
+                    gridColor={colors.border}
+                    labelColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Monthly Deposits vs Withdrawals */}
+            {monthlyBars.groups.length > 0 && (
+              <View className="mb-4">
+                <Text className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                  DEPOSITS VS WITHDRAWALS
+                </Text>
+                <View
+                  className="p-4 rounded-xl"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+                >
+                  <GroupedBarChart
+                    groups={monthlyBars.groups}
+                    labels={monthlyBars.labels}
+                    colors={[colors.success, colors.destructive]}
+                    gridColor={colors.border}
+                    labelColor={colors.textTertiary}
+                  />
+                  <View className="flex-row justify-center gap-4 mt-2">
+                    <View className="flex-row items-center">
+                      <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: colors.success }} />
+                      <Text className="text-xs" style={{ color: colors.textSecondary }}>Deposits</Text>
+                    </View>
+                    <View className="flex-row items-center">
+                      <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: colors.destructive }} />
+                      <Text className="text-xs" style={{ color: colors.textSecondary }}>Withdrawals</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Account Distribution */}
+            {distribution.length > 0 && (
+              <View className="mb-4">
+                <Text className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                  ACCOUNT DISTRIBUTION
+                </Text>
+                <View
+                  className="p-4 rounded-xl flex-row items-center"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+                >
+                  <DonutChart
+                    segments={distribution.map((s) => ({ value: s.value, color: s.color }))}
+                    trackColor={colors.border}
+                    centerLabel={`${distribution.length}`}
+                    centerColor={colors.text}
+                  />
+                  <View className="flex-1 ml-4 gap-2">
+                    {distribution.slice(0, 6).map((s) => (
+                      <View key={s.name} className="flex-row items-center justify-between">
+                        <View className="flex-row items-center flex-1">
+                          <View className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: s.color }} />
+                          <Text className="text-xs" style={{ color: colors.text }} numberOfLines={1}>
+                            {s.name}
+                          </Text>
+                        </View>
+                        <Text className="text-xs font-semibold" style={{ color: colors.textSecondary }}>
+                          {formatReportCurrency(s.value)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Monthly Summary */}
             <View className="mb-4">
               <Text className="text-sm font-semibold mb-2" style={{ color: colors.textSecondary }}>

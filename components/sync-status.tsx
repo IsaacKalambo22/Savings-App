@@ -1,6 +1,5 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity , useColorScheme } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useSyncStore } from "@/features/sync/store/sync.store";
 import { SyncStatus } from "@/types/sync";

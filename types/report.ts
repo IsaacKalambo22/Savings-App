@@ -38,12 +38,12 @@ export interface WithdrawalReport {
 }
 
 export interface TransferReport {
-  transfers: Array<{
+  transfers: {
     fromAccount: AccountWithBalance;
     toAccount: AccountWithBalance;
     amount: number;
     date: Date;
-  }>;
+  }[];
   totalTransferred: number;
   byAccount: Record<string, number>;
 }

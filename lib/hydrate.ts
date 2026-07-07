@@ -10,6 +10,9 @@ import {
 import { getTransactions } from "@/features/transactions/services/transaction.service";
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { useTransactionStore } from "@/features/transactions/store/transaction.store";
+import { initializeNetworkMonitoring, isOnline } from "@/features/sync/services/network.service";
+import { pullAll } from "@/features/sync/services/supabase-sync";
+import { initializeAppSync } from "@/features/sync/store/sync.store";
 
 /** Reload all accounts (with balances) into the account store. */
 export async function reloadAccounts(householdId?: string): Promise<void> {
@@ -31,5 +34,22 @@ export async function reloadTransactions(): Promise<void> {
 export async function initializeApp(): Promise<void> {
   await bootstrapDatabase();
   const householdId = await ensureDefaultHousehold();
+
+  // Start network monitoring so sync reacts to connectivity changes.
+  initializeNetworkMonitoring();
+
+  // Best-effort pull of remote data before first render (no-op if offline or
+  // Supabase isn't configured — the app is fully usable either way).
+  if (isOnline()) {
+    try {
+      await pullAll();
+    } catch (err) {
+      console.warn("Initial pull failed (continuing offline):", err);
+    }
+  }
+
   await Promise.all([reloadAccounts(householdId), reloadTransactions()]);
+
+  // Kick off background sync (drains the queue on interval + on reconnect).
+  initializeAppSync();
 }

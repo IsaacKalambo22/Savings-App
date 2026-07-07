@@ -1,9 +1,8 @@
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert , useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { CURRENCIES } from "@/constants/currency";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
@@ -57,7 +56,7 @@ export default function OnboardingScreen() {
           Welcome to NestKeep
         </Text>
         <Text className="text-base mt-2 mb-8" style={{ color: colors.textSecondary }}>
-          Organise every savings account in one place. Let's set up your household.
+          Organise every savings account in one place. Let’s set up your household.
         </Text>
 
         {/* Household name */}

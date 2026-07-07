@@ -1,6 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator , useColorScheme } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useColorScheme } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Colors } from "@/constants/colors";
