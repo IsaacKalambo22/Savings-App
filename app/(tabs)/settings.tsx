@@ -1,9 +1,10 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter , useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useUIStore } from "@/store/ui.store";
+import { useTheme } from "@/hooks/useTheme";
 import { ExportModal } from "@/components/export-modal";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
 import { getHousehold, getSettings, updateSettings } from "@/features/household/services/household.service";
@@ -12,46 +13,9 @@ import { enableDefaultReminders, disableAllReminders } from "@/features/notifica
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
-function SettingsRow({
-  icon,
-  label,
-  value,
-  onPress,
-  rightElement,
-}: {
-  icon: IoniconName;
-  label: string;
-  value?: string;
-  onPress?: () => void;
-  rightElement?: React.ReactNode;
-}) {
-  return (
-    <TouchableOpacity
-      className="flex-row items-center py-4 border-b border-gray-100 dark:border-[#2a2a2a]"
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950 items-center justify-center mr-3">
-        <Ionicons name={icon} size={18} color="#0A63E0" />
-      </View>
-      <Text className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
-        {label}
-      </Text>
-      {value && (
-        <Text className="text-sm text-gray-400 dark:text-gray-500 mr-2">
-          {value}
-        </Text>
-      )}
-      {rightElement}
-      {!rightElement && onPress && (
-        <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
-      )}
-    </TouchableOpacity>
-  );
-}
-
 export default function SettingsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { theme, setTheme } = useUIStore();
   const [householdName, setHouseholdName] = useState("My Household");
   const [currencyLabel, setCurrencyLabel] = useState("MWK (MK)");
@@ -79,26 +43,7 @@ export default function SettingsScreen() {
     }, [])
   );
 
-  const toggleNotifications = async (value: boolean) => {
-    try {
-      if (value) {
-        const granted = await enableDefaultReminders();
-        if (!granted) {
-          Alert.alert("Permission needed", "Enable notifications for NestKeep in your device settings.");
-          return;
-        }
-      } else {
-        await disableAllReminders();
-      }
-      setNotificationsEnabled(value);
-      if (householdId) await updateSettings(householdId, { notificationsEnabled: value });
-    } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not update notifications");
-    }
-  };
-
-  const themeLabel =
-    theme === "system" ? "System" : theme === "dark" ? "Dark" : "Light";
+  const themeLabel = theme === "system" ? "System" : theme === "dark" ? "Dark" : "Light";
 
   const handleBackup = async () => {
     if (backingUp) return;
@@ -117,105 +62,166 @@ export default function SettingsScreen() {
     }
   };
 
+  const toggleNotifications = async (value: boolean) => {
+    try {
+      if (value) {
+        const granted = await enableDefaultReminders();
+        if (!granted) {
+          Alert.alert("Permission needed", "Enable notifications for NestKeep in your device settings (a development build is required for notifications).");
+          return;
+        }
+      } else {
+        await disableAllReminders();
+      }
+      setNotificationsEnabled(value);
+      if (householdId) await updateSettings(householdId, { notificationsEnabled: value });
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not update notifications");
+    }
+  };
+
+  const SectionLabel = ({ children }: { children: string }) => (
+    <Text
+      className="text-xs font-semibold uppercase tracking-wider mb-2"
+      style={{ color: colors.textSecondary }}
+    >
+      {children}
+    </Text>
+  );
+
+  const Row = ({
+    icon,
+    label,
+    value,
+    onPress,
+    rightElement,
+    last,
+  }: {
+    icon: IoniconName;
+    label: string;
+    value?: string;
+    onPress?: () => void;
+    rightElement?: React.ReactNode;
+    last?: boolean;
+  }) => (
+    <TouchableOpacity
+      className="flex-row items-center py-4"
+      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: colors.border }}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <View
+        className="w-8 h-8 rounded-lg items-center justify-center mr-3"
+        style={{ backgroundColor: colors.primary + "20" }}
+      >
+        <Ionicons name={icon} size={18} color={colors.primary} />
+      </View>
+      <Text className="flex-1 text-sm font-medium" style={{ color: colors.text }}>
+        {label}
+      </Text>
+      {value && (
+        <Text className="text-sm mr-2" style={{ color: colors.textSecondary }}>
+          {value}
+        </Text>
+      )}
+      {rightElement}
+      {!rightElement && onPress && (
+        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+      )}
+    </TouchableOpacity>
+  );
+
+  const Card = ({ children }: { children: React.ReactNode }) => (
+    <View
+      className="rounded-xl px-4 mb-6"
+      style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+    >
+      {children}
+    </View>
+  );
+
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-[#0a0a0a]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="px-4 py-4">
-        <Text className="text-xl font-bold text-gray-900 dark:text-white">
+        <Text className="text-xl font-bold" style={{ color: colors.text }}>
           Settings
         </Text>
       </View>
 
       <ScrollView className="flex-1 px-4">
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 mt-2">
-          Appearance
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow
+        <View className="mt-2">
+          <SectionLabel>Appearance</SectionLabel>
+        </View>
+        <Card>
+          <Row
             icon="moon-outline"
             label="Theme"
             value={themeLabel}
+            last
             onPress={() => {
-              const next =
-                theme === "system" ? "light" : theme === "light" ? "dark" : "system";
+              const next = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
               setTheme(next);
             }}
           />
-        </View>
+        </Card>
 
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-          Household
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow
-            icon="home-outline"
-            label="Household"
-            value={householdName}
-            onPress={() => router.push("/household")}
-          />
-          <SettingsRow
-            icon="people-outline"
-            label="Members"
-            onPress={() => router.push("/household")}
-          />
-          <SettingsRow icon="cash-outline" label="Currency" value={currencyLabel} onPress={() => router.push("/household")} />
-        </View>
+        <SectionLabel>Household</SectionLabel>
+        <Card>
+          <Row icon="home-outline" label="Household" value={householdName} onPress={() => router.push("/household")} />
+          <Row icon="people-outline" label="Members" onPress={() => router.push("/household")} />
+          <Row icon="cash-outline" label="Currency" value={currencyLabel} last onPress={() => router.push("/household")} />
+        </Card>
 
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-          Goals
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow icon="flag-outline" label="Savings Goals" onPress={() => router.push("/goals")} />
-        </View>
+        <SectionLabel>Goals</SectionLabel>
+        <Card>
+          <Row icon="flag-outline" label="Savings Goals" last onPress={() => router.push("/goals")} />
+        </Card>
 
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-          Data
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow
+        <SectionLabel>Data</SectionLabel>
+        <Card>
+          <Row
             icon="cloud-upload-outline"
             label="Backup & Share"
             value={backingUp ? "Working…" : undefined}
             onPress={handleBackup}
           />
-          <SettingsRow icon="download-outline" label="Export Data" onPress={() => setShowExport(true)} />
-        </View>
+          <Row icon="download-outline" label="Export Data" last onPress={() => setShowExport(true)} />
+        </Card>
 
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-          Notifications
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow
+        <SectionLabel>Notifications</SectionLabel>
+        <Card>
+          <Row
             icon="notifications-outline"
             label="Reminders"
+            last
             rightElement={
               <Switch
                 value={notificationsEnabled}
                 onValueChange={toggleNotifications}
-                trackColor={{ true: "#0A63E0" }}
+                trackColor={{ true: colors.primary }}
               />
             }
           />
-        </View>
+        </Card>
 
-        <Text className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-          Security
-        </Text>
-        <View className="bg-gray-50 dark:bg-[#161616] rounded-xl px-4 mb-6">
-          <SettingsRow
+        <SectionLabel>Security</SectionLabel>
+        <Card>
+          <Row
             icon="lock-closed-outline"
             label="PIN Lock"
             value="Coming soon"
             onPress={() => Alert.alert("Coming soon", "PIN lock arrives with the security update.")}
           />
-          <SettingsRow
+          <Row
             icon="finger-print-outline"
             label="Biometrics"
             value="Coming soon"
+            last
             onPress={() => Alert.alert("Coming soon", "Biometric unlock arrives with the security update.")}
           />
-        </View>
+        </Card>
 
-        <Text className="text-center text-xs text-gray-300 dark:text-gray-600 mt-4 mb-8">
+        <Text className="text-center text-xs mt-4 mb-8" style={{ color: colors.textTertiary }}>
           NestKeep v1.0.0
         </Text>
       </ScrollView>

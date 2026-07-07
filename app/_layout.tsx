@@ -74,7 +74,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding/index" options={{ animation: "fade" }} />
         <Stack.Screen name="account/new" />
-        <Stack.Screen name="account/[id]" />
+        <Stack.Screen name="account/[id]/index" />
+        <Stack.Screen name="account/[id]/edit" />
         <Stack.Screen name="transaction/add" options={{ presentation: "modal" }} />
         <Stack.Screen name="transaction/edit" options={{ presentation: "modal" }} />
         <Stack.Screen name="transaction/[id]" options={{ presentation: "modal" }} />

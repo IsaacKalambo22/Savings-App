@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator  } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -62,7 +62,7 @@ export default function EditAccountScreen() {
         color: selectedColor,
       });
       await reloadAccounts();
-      router.push("/(tabs)/accounts");
+      router.back();
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to save account");
     } finally {
@@ -83,7 +83,8 @@ export default function EditAccountScreen() {
             try {
               await archiveAccount(id);
               await reloadAccounts();
-              router.push("/(tabs)/accounts");
+              router.dismissAll?.();
+              router.replace("/(tabs)/accounts");
             } catch (err) {
               Alert.alert("Error", err instanceof Error ? err.message : "Failed to archive");
             }
@@ -104,7 +105,7 @@ export default function EditAccountScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
-        <TouchableOpacity onPress={() => router.push("/(tabs)/accounts")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
             Cancel
           </Text>

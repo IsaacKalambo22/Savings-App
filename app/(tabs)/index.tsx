@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity  } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardStore } from "@/features/dashboard/store/dashboard.store";
@@ -8,7 +8,9 @@ import { useAccountStore } from "@/features/accounts/store/account.store";
 import { useTransactionStore } from "@/features/transactions/store/transaction.store";
 import { getDashboardMetrics, formatCurrency } from "@/features/dashboard/services/dashboard.service";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
-import { useEffect, useState } from "react";
+import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
+import { getGoals, GoalWithProgress } from "@/features/goals/services/goal.service";
+import { useCallback, useEffect, useState } from "react";
 import dayjs from "dayjs";
 
 export default function DashboardScreen() {
@@ -17,6 +19,7 @@ export default function DashboardScreen() {
   const { metrics, setMetrics, setLoading } = useDashboardStore();
   const { activeAccounts } = useAccountStore();
   const { filteredTransactions } = useTransactionStore();
+  const [goals, setGoals] = useState<GoalWithProgress[]>([]);
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -27,6 +30,21 @@ export default function DashboardScreen() {
     };
     loadMetrics();
   }, [activeAccounts, filteredTransactions]);
+
+  // Active (incomplete) goals for the dashboard summary.
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const id = await ensureDefaultHousehold();
+          const all = await getGoals(id);
+          setGoals(all.filter((g) => !g.isCompleted).slice(0, 3));
+        } catch {
+          setGoals([]);
+        }
+      })();
+    }, [activeAccounts, filteredTransactions])
+  );
 
   const MetricCard = ({ title, value, subtitle, icon, color, trend, onPress }: any) => (
     <TouchableOpacity
@@ -135,6 +153,59 @@ export default function DashboardScreen() {
             trend={(metrics?.monthlyWithdrawals ?? 0) > 0 ? "down" : undefined}
           />
         </View>
+
+        {/* Savings Goals */}
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-sm font-semibold" style={{ color: colors.textSecondary }}>
+            SAVINGS GOALS
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/goals")}>
+            <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+              {goals.length > 0 ? "See all" : "+ Add"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {goals.length > 0 ? (
+          <View className="mb-4 gap-2">
+            {goals.map((goal) => {
+              const pct = Math.round(goal.progress * 100);
+              return (
+                <TouchableOpacity
+                  key={goal.id}
+                  onPress={() => router.push("/goals")}
+                  className="p-4 rounded-xl"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons name="flag" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                      <Text className="text-sm font-semibold flex-1" style={{ color: colors.text }} numberOfLines={1}>
+                        {goal.name}
+                      </Text>
+                    </View>
+                    <Text className="text-xs font-semibold" style={{ color: colors.primary }}>
+                      {pct}%
+                    </Text>
+                  </View>
+                  <View className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: colors.border }}>
+                    <View className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: colors.primary }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => router.push("/goals")}
+            className="p-4 rounded-xl mb-4 flex-row items-center"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+          >
+            <Ionicons name="flag-outline" size={20} color={colors.textSecondary} style={{ marginRight: 8 }} />
+            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+              Set a savings goal to track your progress
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Largest Account */}
         {metrics?.largestAccount && (
