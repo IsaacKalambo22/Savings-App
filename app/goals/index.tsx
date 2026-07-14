@@ -9,11 +9,12 @@ import { ensureDefaultHousehold } from "@/features/accounts/services/account.ser
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
 import {
   GoalWithProgress,
-  getGoals,
   createGoal,
   setGoalCompleted,
   deleteGoal,
 } from "@/features/goals/services/goal.service";
+import { useGoalStore } from "@/features/goals/store/goal.store";
+import { reloadGoals } from "@/lib/hydrate";
 import dayjs from "dayjs";
 
 export default function GoalsScreen() {
@@ -21,8 +22,8 @@ export default function GoalsScreen() {
   const { colors } = useTheme();
   const { activeAccounts } = useAccountStore();
 
+  const { goals } = useGoalStore();
   const [householdId, setHouseholdId] = useState("");
-  const [goals, setGoals] = useState<GoalWithProgress[]>([]);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -31,7 +32,7 @@ export default function GoalsScreen() {
   const load = useCallback(async () => {
     const id = await ensureDefaultHousehold();
     setHouseholdId(id);
-    setGoals(await getGoals(id));
+    await reloadGoals(id);
   }, []);
 
   useFocusEffect(

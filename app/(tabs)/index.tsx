@@ -9,8 +9,9 @@ import { useTransactionStore } from "@/features/transactions/store/transaction.s
 import { getDashboardMetrics, formatCurrency } from "@/features/dashboard/services/dashboard.service";
 import { fromBigInt } from "@/features/transactions/services/transaction.service";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
-import { getGoals, GoalWithProgress } from "@/features/goals/services/goal.service";
-import { useCallback, useEffect, useState } from "react";
+import { useGoalStore } from "@/features/goals/store/goal.store";
+import { reloadGoals } from "@/lib/hydrate";
+import { useCallback, useEffect } from "react";
 import dayjs from "dayjs";
 
 export default function DashboardScreen() {
@@ -19,7 +20,9 @@ export default function DashboardScreen() {
   const { metrics, setMetrics, setLoading } = useDashboardStore();
   const { activeAccounts } = useAccountStore();
   const { filteredTransactions } = useTransactionStore();
-  const [goals, setGoals] = useState<GoalWithProgress[]>([]);
+  const { activeGoals } = useGoalStore();
+  // Active (incomplete) goals for the dashboard summary — kept live by the store.
+  const goals = activeGoals.slice(0, 3);
 
   useEffect(() => {
     const loadMetrics = async () => {
@@ -31,19 +34,19 @@ export default function DashboardScreen() {
     loadMetrics();
   }, [activeAccounts, filteredTransactions]);
 
-  // Active (incomplete) goals for the dashboard summary.
+  // Refresh goals into the store when the dashboard gains focus, so it's fresh
+  // even without a sync tick. The store keeps the summary live thereafter.
   useFocusEffect(
     useCallback(() => {
       (async () => {
         try {
           const id = await ensureDefaultHousehold();
-          const all = await getGoals(id);
-          setGoals(all.filter((g) => !g.isCompleted).slice(0, 3));
+          await reloadGoals(id);
         } catch {
-          setGoals([]);
+          /* leave the last-known goals in place */
         }
       })();
-    }, [activeAccounts, filteredTransactions])
+    }, [])
   );
 
   const MetricCard = ({ title, value, subtitle, icon, color, trend, onPress }: any) => (

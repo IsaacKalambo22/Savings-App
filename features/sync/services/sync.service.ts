@@ -8,7 +8,8 @@ import {
 import { isOnline, onNetworkChange } from "./network.service";
 import { getDb, nowIso } from "@/lib/db";
 import { SyncStatus as SyncStatusEnum } from "@/types/prisma";
-import { pushEntity } from "./supabase-sync";
+import { pushEntity, pullAll, subscribeToRemoteChanges } from "./supabase-sync";
+import { AppState, AppStateStatus } from "react-native";
 
 /**
  * Mark a local row as synced. Deletes in NestKeep are soft (Rule 2) — the row
@@ -35,31 +36,86 @@ let syncInProgress = false;
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
- * Initialize sync service
+ * Handler invoked after a pull applies remote rows, so the app can reload the
+ * on-screen stores from local SQLite. Registered by the app on startup (see
+ * lib/hydrate.ts) to avoid a circular import between the sync and data layers.
+ */
+let dataChangeHandler: (() => void | Promise<void>) | null = null;
+
+export function registerDataChangeHandler(
+  handler: (() => void | Promise<void>) | null
+): void {
+  dataChangeHandler = handler;
+}
+
+/**
+ * Pull remote changes into local SQLite and, if anything was applied, refresh
+ * the app's stores. Safe to call often — it's a no-op when offline or when
+ * Supabase isn't configured. Debounced callers (realtime) can hit this freely.
+ */
+export async function pullAndReload(): Promise<number> {
+  if (!isOnline()) return 0;
+  const applied = await pullAll();
+  if (applied > 0 && dataChangeHandler) {
+    await dataChangeHandler();
+  }
+  return applied;
+}
+
+/**
+ * Initialize sync service. Runs a bidirectional sync (push queued edits, then
+ * pull remote changes) on an interval, on reconnect, when the app returns to
+ * the foreground, and instantly via Supabase Realtime when another member's
+ * device writes.
  */
 export function initializeSync(onStatusChange: (status: SyncStatus) => void) {
-  // Start periodic sync every 30 seconds
-  syncInterval = setInterval(() => {
-    if (isOnline() && !syncInProgress) {
-      performSync().catch(console.error);
-    }
-  }, 30000);
+  const runSync = (announce: boolean) => {
+    if (!isOnline() || syncInProgress) return;
+    if (announce) onStatusChange("syncing");
+    performSync()
+      .then(() => announce && onStatusChange("synced"))
+      .catch((err) => {
+        console.error(err);
+        if (announce) onStatusChange("error");
+      });
+  };
 
-  // Listen for network changes
-  const unsubscribe = onNetworkChange((isOnlineStatus) => {
-    if (isOnlineStatus && !syncInProgress) {
-      onStatusChange("syncing");
-      performSync()
-        .then(() => onStatusChange("synced"))
-        .catch(() => onStatusChange("error"));
+  // Periodic bidirectional sync (also the fallback if Realtime isn't enabled).
+  syncInterval = setInterval(() => runSync(false), 30000);
+
+  // Listen for network changes.
+  const unsubscribeNetwork = onNetworkChange((isOnlineStatus) => {
+    if (isOnlineStatus) {
+      runSync(true);
     } else {
       onStatusChange("offline");
     }
   });
 
+  // Pull fresh data whenever the app comes back to the foreground.
+  const appStateSub = AppState.addEventListener(
+    "change",
+    (state: AppStateStatus) => {
+      if (state === "active") runSync(false);
+    }
+  );
+
+  // Instant updates: pull + reload as soon as another device writes remotely.
+  // Debounced so a burst of row events triggers a single pull.
+  let realtimeTimer: ReturnType<typeof setTimeout> | null = null;
+  const unsubscribeRealtime = subscribeToRemoteChanges(() => {
+    if (realtimeTimer) clearTimeout(realtimeTimer);
+    realtimeTimer = setTimeout(() => {
+      pullAndReload().catch(console.error);
+    }, 400);
+  });
+
   return () => {
     if (syncInterval) clearInterval(syncInterval);
-    unsubscribe();
+    if (realtimeTimer) clearTimeout(realtimeTimer);
+    unsubscribeNetwork();
+    appStateSub.remove();
+    unsubscribeRealtime();
   };
 }
 
@@ -76,8 +132,21 @@ export async function performSync(): Promise<void> {
   const pendingItems = getPendingItems();
 
   try {
+    // 1. Push local edits up.
     for (const item of pendingItems) {
       await syncItem(item);
+    }
+
+    // 2. Pull remote edits (other members' changes) down, and refresh the
+    //    on-screen stores if anything changed. Best-effort — a pull failure
+    //    must not lose the push work above.
+    try {
+      const applied = await pullAll();
+      if (applied > 0 && dataChangeHandler) {
+        await dataChangeHandler();
+      }
+    } catch (err) {
+      console.warn("Pull during sync failed (continuing):", err);
     }
   } finally {
     syncInProgress = false;

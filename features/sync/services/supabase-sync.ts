@@ -155,7 +155,14 @@ export async function pullTable(
 export async function pullAll(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
   let total = 0;
-  for (const table of ["households", "settings", "accounts", "transactions", "transfers"] as const) {
+  for (const table of [
+    "households",
+    "settings",
+    "accounts",
+    "transactions",
+    "transfers",
+    "savings_goals",
+  ] as const) {
     try {
       total += await pullTable(table);
     } catch (err) {
@@ -202,4 +209,43 @@ export async function fetchRemoteHousehold(id: string): Promise<any | null> {
   const { data, error } = await supabase.from("households").select("*").eq("id", id).limit(1);
   if (error) throw new Error(error.message);
   return data && data.length ? data[0] : null;
+}
+
+// Tables watched for live updates from other household members.
+const REALTIME_TABLES = [
+  "accounts",
+  "transactions",
+  "transfers",
+  "savings_goals",
+  "households",
+  "settings",
+] as const;
+
+/**
+ * Subscribe to remote row changes (inserts/updates/deletes) across the synced
+ * tables. Fires `onChange` whenever another device writes to Supabase, so the
+ * local device can pull + refresh in near real time. Best-effort: a no-op if
+ * Supabase/Realtime isn't configured. Returns an unsubscribe function.
+ *
+ * NOTE: for this to deliver events, Realtime must be enabled for these tables
+ * in the Supabase dashboard (Database → Replication → add tables to the
+ * `supabase_realtime` publication). If it isn't, the periodic pull in
+ * sync.service still keeps devices converged — this just makes it instant.
+ */
+export function subscribeToRemoteChanges(onChange: () => void): () => void {
+  if (!isSupabaseConfigured()) return () => {};
+
+  const channel = supabase.channel("nestkeep-sync");
+  for (const table of REALTIME_TABLES) {
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table },
+      () => onChange()
+    );
+  }
+  channel.subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
