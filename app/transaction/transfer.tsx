@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert  } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -64,7 +65,7 @@ export default function TransferScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <SafeAreaView edges={["top"]} className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
@@ -223,6 +224,6 @@ export default function TransferScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

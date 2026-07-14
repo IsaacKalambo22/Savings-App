@@ -41,8 +41,34 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Let users enter the app without finishing setup — a default household is
+  // created automatically and can be renamed later in Settings → Household.
+  const handleSkip = async () => {
+    if (saving) return;
+    try {
+      const householdId = await ensureDefaultHousehold();
+      setHouseholdId(householdId);
+    } catch {
+      /* default household is created lazily elsewhere if this fails */
+    }
+    setOnboardingDone(true);
+    router.replace("/(tabs)");
+  };
+
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+      <View className="flex-row justify-end px-6 pt-2">
+        <TouchableOpacity
+          onPress={handleSkip}
+          disabled={saving}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text className="text-base font-semibold" style={{ color: colors.textSecondary }}>
+            Skip for now
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View className="flex-1 px-6 justify-center">
         <View
           className="w-16 h-16 rounded-2xl items-center justify-center mb-6"

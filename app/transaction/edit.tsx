@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator  } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
@@ -92,7 +93,7 @@ export default function EditTransactionScreen() {
   const isDeposit = transaction.type === TransactionType.DEPOSIT;
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <SafeAreaView edges={["top"]} className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text className="text-base font-semibold" style={{ color: colors.primary }}>
@@ -178,6 +179,6 @@ export default function EditTransactionScreen() {
           Tip: to correct an already-synced transaction, reverse it from the details screen instead of editing.
         </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator  } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -153,7 +154,7 @@ export default function TransactionDetailScreen() {
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.background }}>
+    <SafeAreaView edges={["top"]} className="flex-1" style={{ backgroundColor: colors.background }}>
       <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="close" size={24} color={colors.text} />
@@ -315,6 +316,6 @@ export default function TransactionDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

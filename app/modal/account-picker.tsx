@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Modal  } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { ACCOUNT_ICONS } from "@/types/account";
@@ -15,7 +16,7 @@ export function IconPicker({ visible, selectedIcon, onSelect, onClose }: IconPic
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View className="flex-1" style={{ backgroundColor: colors.background }}>
+      <SafeAreaView edges={["top"]} className="flex-1" style={{ backgroundColor: colors.background }}>
         <View className="flex-row items-center justify-between px-4 py-4 border-b" style={{ borderColor: colors.border }}>
           <TouchableOpacity onPress={onClose}>
             <Text className="text-base font-semibold" style={{ color: colors.primary }}>
@@ -54,7 +55,7 @@ export function IconPicker({ visible, selectedIcon, onSelect, onClose }: IconPic
             ))}
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
