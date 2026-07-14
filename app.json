@@ -7,16 +7,14 @@
     "scheme": "nestkeep",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#0A63E0"
-    },
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nestkeep.app"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A63E0"
       },
       "package": "com.nestkeep.app",
@@ -33,6 +31,15 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
       [
         "expo-local-authentication",
         {
