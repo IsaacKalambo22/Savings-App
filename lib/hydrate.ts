@@ -69,7 +69,7 @@ export async function initializeApp(): Promise<void> {
       console.warn("Household push failed (continuing):", err);
     }
     try {
-      await pullAll();
+      await pullAll(householdId);
     } catch (err) {
       console.warn("Initial pull failed (continuing offline):", err);
     }

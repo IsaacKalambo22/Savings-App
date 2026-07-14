@@ -102,26 +102,21 @@ export async function pushEntity(
   if (error) throw new Error(error.message);
 }
 
+type SyncedTable =
+  | "accounts"
+  | "transactions"
+  | "transfers"
+  | "households"
+  | "settings"
+  | "savings_goals";
+
 /**
- * Pull remote rows for a table into local SQLite. Conservative: inserts rows
+ * Write fetched remote rows into local SQLite. Conservative: inserts rows
  * missing locally and updates rows the server has newer, but never overwrites a
- * row with unsynced local changes (syncStatus = 'PENDING'). Best-effort.
+ * row with unsynced local changes (syncStatus = 'PENDING'). Returns how many
+ * rows were actually applied.
  */
-export async function pullTable(
-  table:
-    | "accounts"
-    | "transactions"
-    | "transfers"
-    | "households"
-    | "settings"
-    | "savings_goals"
-): Promise<number> {
-  if (!isSupabaseConfigured()) return 0;
-
-  const { data, error } = await supabase.from(table).select("*");
-  if (error) throw new Error(error.message);
-  if (!data || data.length === 0) return 0;
-
+async function applyRemoteRows(table: SyncedTable, data: any[]): Promise<number> {
   const db = await getDb();
   let applied = 0;
 
@@ -151,24 +146,83 @@ export async function pullTable(
   return applied;
 }
 
-/** Pull all core tables from Supabase (initial device hydration). */
-export async function pullAll(): Promise<number> {
-  if (!isSupabaseConfigured()) return 0;
-  let total = 0;
-  for (const table of [
-    "households",
-    "settings",
-    "accounts",
-    "transactions",
-    "transfers",
-    "savings_goals",
-  ] as const) {
+/**
+ * Fetch rows for a table (optionally narrowed by `buildFilter`) and apply them
+ * locally. Returns the applied count AND the fetched remote rows — callers chain
+ * the rows to scope dependent tables (e.g. transactions by account id).
+ */
+async function fetchAndApply(
+  table: SyncedTable,
+  buildFilter?: (q: any) => any
+): Promise<{ applied: number; rows: any[] }> {
+  if (!isSupabaseConfigured()) return { applied: 0, rows: [] };
+  let query: any = supabase.from(table).select("*");
+  if (buildFilter) query = buildFilter(query);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) return { applied: 0, rows: [] };
+  const applied = await applyRemoteRows(table, data);
+  return { applied, rows: data };
+}
+
+/**
+ * Pull one household's data from Supabase into local SQLite. Scoped by
+ * household so a device NEVER pulls another household's rows: accounts,
+ * settings and goals filter on householdId directly; transactions and transfers
+ * (which have no householdId column) are chained off this household's account
+ * ids → transaction ids. Best-effort per table. Requires a householdId — with
+ * none, it's a no-op (nothing to scope to).
+ */
+export async function pullAll(householdId: string): Promise<number> {
+  if (!isSupabaseConfigured() || !householdId) return 0;
+
+  const safe = async (
+    label: string,
+    fn: () => Promise<{ applied: number; rows: any[] }>
+  ): Promise<{ applied: number; rows: any[] }> => {
     try {
-      total += await pullTable(table);
+      return await fn();
     } catch (err) {
-      console.warn(`Pull failed for ${table}:`, err);
+      console.warn(`Pull failed for ${label}:`, err);
+      return { applied: 0, rows: [] };
     }
+  };
+
+  let total = 0;
+
+  // Directly household-scoped tables.
+  total += (await safe("households", () =>
+    fetchAndApply("households", (q) => q.eq("id", householdId))
+  )).applied;
+  total += (await safe("settings", () =>
+    fetchAndApply("settings", (q) => q.eq("householdId", householdId))
+  )).applied;
+  const accounts = await safe("accounts", () =>
+    fetchAndApply("accounts", (q) => q.eq("householdId", householdId))
+  );
+  total += accounts.applied;
+  total += (await safe("savings_goals", () =>
+    fetchAndApply("savings_goals", (q) => q.eq("householdId", householdId))
+  )).applied;
+
+  // Transactions: scoped to this household's accounts.
+  const accountIds = accounts.rows.map((r) => r.id);
+  let transactions: { applied: number; rows: any[] } = { applied: 0, rows: [] };
+  if (accountIds.length) {
+    transactions = await safe("transactions", () =>
+      fetchAndApply("transactions", (q) => q.in("accountId", accountIds))
+    );
+    total += transactions.applied;
   }
+
+  // Transfers: scoped to this household's transactions.
+  const transactionIds = transactions.rows.map((r) => r.id);
+  if (transactionIds.length) {
+    total += (await safe("transfers", () =>
+      fetchAndApply("transfers", (q) => q.in("fromTransactionId", transactionIds))
+    )).applied;
+  }
+
   return total;
 }
 

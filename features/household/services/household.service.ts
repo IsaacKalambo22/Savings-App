@@ -196,7 +196,7 @@ export async function joinHouseholdByCode(rawCode: string): Promise<Household> {
 
   // Pull the household's accounts/transactions into local storage.
   try {
-    await pullAll();
+    await pullAll(id);
   } catch {
     /* best-effort — queued/pending data still resolves on the next sync */
   }

@@ -10,6 +10,12 @@ import { getDb, nowIso } from "@/lib/db";
 import { SyncStatus as SyncStatusEnum } from "@/types/prisma";
 import { pushEntity, pullAll, subscribeToRemoteChanges } from "./supabase-sync";
 import { AppState, AppStateStatus } from "react-native";
+import { useAppStore } from "@/store/app.store";
+
+/** The household whose data this device should pull (null before onboarding). */
+function activeHouseholdId(): string | null {
+  return useAppStore.getState().householdId;
+}
 
 /**
  * Mark a local row as synced. Deletes in NestKeep are soft (Rule 2) — the row
@@ -55,7 +61,9 @@ export function registerDataChangeHandler(
  */
 export async function pullAndReload(): Promise<number> {
   if (!isOnline()) return 0;
-  const applied = await pullAll();
+  const householdId = activeHouseholdId();
+  if (!householdId) return 0;
+  const applied = await pullAll(householdId);
   if (applied > 0 && dataChangeHandler) {
     await dataChangeHandler();
   }
@@ -141,7 +149,8 @@ export async function performSync(): Promise<void> {
     //    on-screen stores if anything changed. Best-effort — a pull failure
     //    must not lose the push work above.
     try {
-      const applied = await pullAll();
+      const householdId = activeHouseholdId();
+      const applied = householdId ? await pullAll(householdId) : 0;
       if (applied > 0 && dataChangeHandler) {
         await dataChangeHandler();
       }
