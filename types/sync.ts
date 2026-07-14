@@ -5,7 +5,7 @@ export type SyncOperation = "create" | "update" | "delete";
 export interface SyncQueueItem {
   id: string;
   operation: SyncOperation;
-  entityType: "transaction" | "account" | "transfer";
+  entityType: "transaction" | "account" | "transfer" | "goal";
   entityId: string;
   data: Record<string, any>;
   timestamp: Date;

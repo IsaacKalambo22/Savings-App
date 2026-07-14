@@ -14,6 +14,7 @@ const TABLE_FOR_ENTITY: Record<string, string> = {
   transaction: "transactions",
   account: "accounts",
   transfer: "transfers",
+  goal: "savings_goals",
 };
 
 /**
@@ -77,7 +78,7 @@ function toLocalValues(table: string, row: any): Record<string, any> {
  * Throws on failure so the caller can retry via the queue.
  */
 export async function pushEntity(
-  entityType: "transaction" | "account" | "transfer",
+  entityType: "transaction" | "account" | "transfer" | "goal",
   entityId: string
 ): Promise<void> {
   if (!isSupabaseConfigured()) return;
@@ -107,7 +108,13 @@ export async function pushEntity(
  * row with unsynced local changes (syncStatus = 'PENDING'). Best-effort.
  */
 export async function pullTable(
-  table: "accounts" | "transactions" | "transfers" | "households" | "settings"
+  table:
+    | "accounts"
+    | "transactions"
+    | "transfers"
+    | "households"
+    | "settings"
+    | "savings_goals"
 ): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
 

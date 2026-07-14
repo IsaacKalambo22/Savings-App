@@ -39,7 +39,7 @@ function saveSyncQueue(queue: SyncQueueItem[]) {
  */
 export function addToSyncQueue(
   operation: SyncOperation,
-  entityType: "transaction" | "account" | "transfer",
+  entityType: "transaction" | "account" | "transfer" | "goal",
   entityId: string,
   data: Record<string, any>
 ): SyncQueueItem {
@@ -83,7 +83,7 @@ export function updateSyncQueueItem(itemId: string, updates: Partial<SyncQueueIt
  * Get pending items for a specific entity
  */
 export function getPendingItemsForEntity(
-  entityType: "transaction" | "account" | "transfer",
+  entityType: "transaction" | "account" | "transfer" | "goal",
   entityId: string
 ): SyncQueueItem[] {
   const queue = getSyncQueue();
