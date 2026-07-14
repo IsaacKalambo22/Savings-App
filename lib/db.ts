@@ -10,7 +10,7 @@
 // The service layer maps rows to the domain models in types/prisma.ts.
 
 import * as SQLite from "expo-sqlite";
-import { generateId } from "./utils";
+import { generateId, generateHouseholdCode, householdIdFromCode } from "./utils";
 import {
   Account,
   AccountStatus,
@@ -188,20 +188,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entityType, entityId);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(createdAt);
 `;
 
-// Rule 14: Default accounts for a new household.
-const DEFAULT_ACCOUNTS = [
-  { name: "Joint", icon: "people", color: "#0A63E0", sortOrder: 0 },
-  { name: "Rent", icon: "home", color: "#479CFC", sortOrder: 1 },
-  { name: "Business", icon: "briefcase", color: "#084FC0", sortOrder: 2 },
-  { name: "Personal", icon: "person", color: "#22C55E", sortOrder: 3 },
-  { name: "Mom", icon: "heart", color: "#F59E0B", sortOrder: 4 },
-  { name: "Groceries", icon: "cart", color: "#EF4444", sortOrder: 5 },
-  { name: "Change", icon: "cash", color: "#7C3AED", sortOrder: 6 },
-];
-
 /**
- * Create tables (idempotent) and seed the default household + accounts on first
- * launch. Safe to call multiple times; work runs at most once per app session.
+ * Create tables (idempotent) and seed a starter household on first launch.
+ * Safe to call multiple times; work runs at most once per app session.
  */
 export function bootstrapDatabase(): Promise<void> {
   if (!bootstrapPromise) {
@@ -225,37 +214,24 @@ async function seedDefaultHousehold(db: SQLite.SQLiteDatabase): Promise<void> {
   if (existing) return;
 
   const now = nowIso();
+  // Each device starts with its OWN uniquely-coded household (not a shared
+  // constant id), so members only see the same data once they intentionally
+  // join via a share code. It starts empty — no demo accounts — so a joined
+  // household never accumulates duplicate seed data. syncStatus PENDING so it
+  // is pushed up and becomes joinable.
+  const id = householdIdFromCode(generateHouseholdCode());
 
   await db.runAsync(
     `INSERT INTO households (id, name, currency, createdAt, updatedAt, syncStatus)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [DEFAULT_HOUSEHOLD_ID, "My Household", "MWK", now, now, SyncStatus.SYNCED]
+    [id, "My Household", "MWK", now, now, SyncStatus.PENDING]
   );
 
   await db.runAsync(
     `INSERT INTO settings (id, householdId, currency, currencySymbol, createdAt, updatedAt, syncStatus)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [generateId(), DEFAULT_HOUSEHOLD_ID, "MWK", "MK", now, now, SyncStatus.SYNCED]
+    [generateId(), id, "MWK", "MK", now, now, SyncStatus.PENDING]
   );
-
-  for (const account of DEFAULT_ACCOUNTS) {
-    await db.runAsync(
-      `INSERT INTO accounts (id, householdId, name, icon, color, status, sortOrder, createdAt, updatedAt, syncStatus)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        generateId(),
-        DEFAULT_HOUSEHOLD_ID,
-        account.name,
-        account.icon,
-        account.color,
-        AccountStatus.ACTIVE,
-        account.sortOrder,
-        now,
-        now,
-        SyncStatus.SYNCED,
-      ]
-    );
-  }
 }
 
 // ─────────────────────────────────────────────

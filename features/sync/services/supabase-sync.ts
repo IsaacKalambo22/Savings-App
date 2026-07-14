@@ -157,3 +157,42 @@ export async function pullAll(): Promise<number> {
   }
   return total;
 }
+
+// Households and settings aren't queued like transactions/accounts, so they're
+// pushed explicitly (on create / rename) — this is what makes a household
+// discoverable by others via its share code.
+
+/** Push a single household row to Supabase. Throws on failure so callers can surface it. */
+export async function pushHousehold(id: string): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const db = await getDb();
+  const row = await db.getFirstAsync<any>(`SELECT * FROM households WHERE id = ?`, [id]);
+  if (!row) return;
+  const { error } = await supabase
+    .from("households")
+    .upsert(toRemoteRow("households", row), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+/** Push a household's settings row to Supabase. */
+export async function pushSettings(householdId: string): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const db = await getDb();
+  const row = await db.getFirstAsync<any>(
+    `SELECT * FROM settings WHERE householdId = ?`,
+    [householdId]
+  );
+  if (!row) return;
+  const { error } = await supabase
+    .from("settings")
+    .upsert(toRemoteRow("settings", row), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+/** Look up a household in Supabase by id (used when joining via a share code). */
+export async function fetchRemoteHousehold(id: string): Promise<any | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { data, error } = await supabase.from("households").select("*").eq("id", id).limit(1);
+  if (error) throw new Error(error.message);
+  return data && data.length ? data[0] : null;
+}

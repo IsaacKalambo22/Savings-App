@@ -7,7 +7,9 @@ import { useTheme } from "@/hooks/useTheme";
 import { CURRENCIES } from "@/constants/currency";
 import { MemberRole , HouseholdMember, AuditLog, Household } from "@/types/prisma";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
-import { getHousehold, getSettings, updateHousehold } from "@/features/household/services/household.service";
+import { getHousehold, getSettings, updateHousehold, joinHouseholdByCode } from "@/features/household/services/household.service";
+import { codeFromHouseholdId, formatHouseholdCode } from "@/lib/utils";
+import { reloadAccounts, reloadTransactions } from "@/lib/hydrate";
 import {
   getMembers,
   addMember,
@@ -39,6 +41,9 @@ export default function HouseholdScreen() {
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<MemberRole>(MemberRole.MEMBER);
   const [adding, setAdding] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     const id = await ensureDefaultHousehold();
@@ -70,6 +75,27 @@ export default function HouseholdScreen() {
     await updateHousehold(householdId, { name: name.trim(), currency });
     Alert.alert("Saved", "Household details updated.");
     load();
+  };
+
+  const handleJoin = async () => {
+    if (joining) return;
+    if (!joinCode.trim()) {
+      Alert.alert("Enter a code", "Type the household code someone shared with you.");
+      return;
+    }
+    try {
+      setJoining(true);
+      await joinHouseholdByCode(joinCode);
+      await Promise.all([reloadAccounts(), reloadTransactions()]);
+      setJoinCode("");
+      setJoinOpen(false);
+      await load();
+      Alert.alert("Joined", "You're now in the shared household.");
+    } catch (err) {
+      Alert.alert("Couldn't join", err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setJoining(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -175,6 +201,59 @@ export default function HouseholdScreen() {
             <Text className="text-sm font-bold text-white">Save Changes</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Share code */}
+        <Text className="text-xs font-semibold uppercase tracking-wider mb-2 mt-4" style={{ color: colors.textSecondary }}>
+          Share Code
+        </Text>
+        <View className="p-4 rounded-xl mb-3" style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}>
+          {codeFromHouseholdId(householdId) ? (
+            <>
+              <Text className="text-2xl font-bold tracking-widest" style={{ color: colors.primary }}>
+                {formatHouseholdCode(codeFromHouseholdId(householdId))}
+              </Text>
+              <Text className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+                Share this code so family can join and see the same accounts and transactions.
+              </Text>
+            </>
+          ) : (
+            <Text className="text-sm" style={{ color: colors.textSecondary }}>
+              This household predates share codes. Create a new one (from onboarding) to get a shareable code.
+            </Text>
+          )}
+        </View>
+
+        {/* Join another household */}
+        <View className="flex-row items-center justify-between mb-2 mt-4">
+          <Text className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textSecondary }}>
+            Join another household
+          </Text>
+          <TouchableOpacity onPress={() => setJoinOpen((v) => !v)}>
+            <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+              {joinOpen ? "Cancel" : "Enter code"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {joinOpen && (
+          <View className="p-4 rounded-xl mb-3" style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}>
+            <TextInput
+              value={joinCode}
+              onChangeText={setJoinCode}
+              placeholder="e.g., BND-47Q"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholderTextColor={colors.textTertiary}
+              className="p-3 rounded-lg mb-3"
+              style={{ backgroundColor: colors.background, color: colors.text, borderColor: colors.border, borderWidth: 1, letterSpacing: 2 }}
+            />
+            <TouchableOpacity onPress={handleJoin} disabled={joining} className="p-3 rounded-lg items-center" style={{ backgroundColor: colors.primary, opacity: joining ? 0.7 : 1 }}>
+              <Text className="text-sm font-bold text-white">{joining ? "Joining…" : "Join household"}</Text>
+            </TouchableOpacity>
+            <Text className="text-xs mt-2" style={{ color: colors.textTertiary }}>
+              Switching households changes which accounts and transactions you see.
+            </Text>
+          </View>
+        )}
 
         {/* Members */}
         <View className="flex-row items-center justify-between mb-2 mt-4">

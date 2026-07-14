@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/hooks/useTheme";
 import { CURRENCIES } from "@/constants/currency";
 import { ensureDefaultHousehold } from "@/features/accounts/services/account.service";
-import { updateHousehold } from "@/features/household/services/household.service";
+import { updateHousehold, joinHouseholdByCode } from "@/features/household/services/household.service";
 import { useAppStore } from "@/store/app.store";
 
 export default function OnboardingScreen() {
@@ -15,8 +15,10 @@ export default function OnboardingScreen() {
   const setOnboardingDone = useAppStore((s) => s.setOnboardingDone);
   const setHouseholdId = useAppStore((s) => s.setHouseholdId);
 
+  const [mode, setMode] = useState<"create" | "join">("create");
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("MWK");
+  const [code, setCode] = useState("");
   const [saving, setSaving] = useState(false);
 
   const currencyOptions = CURRENCIES ?? [{ code: "MWK", symbol: "MK", name: "Malawian Kwacha" }];
@@ -36,6 +38,24 @@ export default function OnboardingScreen() {
       router.replace("/(tabs)");
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (saving) return;
+    if (!code.trim()) {
+      Alert.alert("Enter a code", "Type the household code someone shared with you.");
+      return;
+    }
+    try {
+      setSaving(true);
+      await joinHouseholdByCode(code);
+      setOnboardingDone(true);
+      router.replace("/(tabs)");
+    } catch (err) {
+      Alert.alert("Couldn't join", err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
     }
@@ -80,59 +100,113 @@ export default function OnboardingScreen() {
         <Text className="text-3xl font-bold" style={{ color: colors.text }}>
           Welcome to NestKeep
         </Text>
-        <Text className="text-base mt-2 mb-8" style={{ color: colors.textSecondary }}>
-          Organise every savings account in one place. Let’s set up your household.
+        <Text className="text-base mt-2 mb-6" style={{ color: colors.textSecondary }}>
+          Organise every savings account in one place.
         </Text>
 
-        {/* Household name */}
-        <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-          Household Name
-        </Text>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g., The Bandas"
-          placeholderTextColor={colors.textTertiary}
-          className="p-4 rounded-xl mb-6"
-          style={{ backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1 }}
-        />
-
-        {/* Currency */}
-        <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
-          Currency
-        </Text>
-        <View className="flex-row flex-wrap gap-2 mb-10">
-          {currencyOptions.map((c: any) => (
+        {/* Create / Join toggle */}
+        <View
+          className="flex-row rounded-xl mb-6 p-1"
+          style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }}
+        >
+          {(["create", "join"] as const).map((m) => (
             <TouchableOpacity
-              key={c.code}
-              onPress={() => setCurrency(c.code)}
-              className="px-4 py-3 rounded-xl"
-              style={{
-                backgroundColor: currency === c.code ? colors.primary + "20" : colors.surface,
-                borderColor: currency === c.code ? colors.primary : colors.border,
-                borderWidth: 2,
-              }}
+              key={m}
+              onPress={() => setMode(m)}
+              className="flex-1 py-2.5 rounded-lg items-center"
+              style={{ backgroundColor: mode === m ? colors.primary : "transparent" }}
             >
               <Text
                 className="text-sm font-semibold"
-                style={{ color: currency === c.code ? colors.primary : colors.text }}
+                style={{ color: mode === m ? "#fff" : colors.textSecondary }}
               >
-                {c.code} · {c.symbol}
+                {m === "create" ? "Create new" : "Join with code"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity
-          onPress={handleContinue}
-          disabled={saving}
-          className="p-4 rounded-xl items-center"
-          style={{ backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }}
-        >
-          <Text className="text-base font-bold text-white">
-            {saving ? "Setting up…" : "Get Started"}
-          </Text>
-        </TouchableOpacity>
+        {mode === "create" ? (
+          <>
+            <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+              Household Name
+            </Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g., The Bandas"
+              placeholderTextColor={colors.textTertiary}
+              className="p-4 rounded-xl mb-6"
+              style={{ backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1 }}
+            />
+
+            <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+              Currency
+            </Text>
+            <View className="flex-row flex-wrap gap-2 mb-10">
+              {currencyOptions.map((c: any) => (
+                <TouchableOpacity
+                  key={c.code}
+                  onPress={() => setCurrency(c.code)}
+                  className="px-4 py-3 rounded-xl"
+                  style={{
+                    backgroundColor: currency === c.code ? colors.primary + "20" : colors.surface,
+                    borderColor: currency === c.code ? colors.primary : colors.border,
+                    borderWidth: 2,
+                  }}
+                >
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: currency === c.code ? colors.primary : colors.text }}
+                  >
+                    {c.code} · {c.symbol}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={handleContinue}
+              disabled={saving}
+              className="p-4 rounded-xl items-center"
+              style={{ backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }}
+            >
+              <Text className="text-base font-bold text-white">
+                {saving ? "Setting up…" : "Get Started"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text className="text-sm font-medium mb-2" style={{ color: colors.textSecondary }}>
+              Household Code
+            </Text>
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder="e.g., BND-47Q"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholderTextColor={colors.textTertiary}
+              className="p-4 rounded-xl mb-3"
+              style={{ backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1, letterSpacing: 2 }}
+            />
+            <Text className="text-xs mb-10" style={{ color: colors.textTertiary }}>
+              Ask a household member for their code — they can find it under Settings → Household.
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleJoin}
+              disabled={saving}
+              className="p-4 rounded-xl items-center"
+              style={{ backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }}
+            >
+              <Text className="text-base font-bold text-white">
+                {saving ? "Joining…" : "Join household"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );

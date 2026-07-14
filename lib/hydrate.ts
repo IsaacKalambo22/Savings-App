@@ -11,7 +11,7 @@ import { getTransactions } from "@/features/transactions/services/transaction.se
 import { useAccountStore } from "@/features/accounts/store/account.store";
 import { useTransactionStore } from "@/features/transactions/store/transaction.store";
 import { initializeNetworkMonitoring, isOnline } from "@/features/sync/services/network.service";
-import { pullAll } from "@/features/sync/services/supabase-sync";
+import { pullAll, pushHousehold, pushSettings } from "@/features/sync/services/supabase-sync";
 import { initializeAppSync } from "@/features/sync/store/sync.store";
 
 /** Reload all accounts (with balances) into the account store. */
@@ -41,6 +41,14 @@ export async function initializeApp(): Promise<void> {
   // Best-effort pull of remote data before first render (no-op if offline or
   // Supabase isn't configured — the app is fully usable either way).
   if (isOnline()) {
+    // Push the active household + settings so members can always join it by
+    // code, even if the user never renamed it. Idempotent upsert.
+    try {
+      await pushHousehold(householdId);
+      await pushSettings(householdId);
+    } catch (err) {
+      console.warn("Household push failed (continuing):", err);
+    }
     try {
       await pullAll();
     } catch (err) {

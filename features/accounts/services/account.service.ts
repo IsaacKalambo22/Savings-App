@@ -9,15 +9,26 @@ import {
 } from "@/lib/db";
 import { generateId } from "@/lib/utils";
 import { addToSyncQueue } from "@/features/sync/services/sync-queue.service";
+import { useAppStore } from "@/store/app.store";
 
 /**
- * Ensure the default household exists.
- * Bootstrapping (schema + seed) is idempotent, so this simply guarantees the
- * database is ready and returns the default household id.
+ * Resolve the active household id. Prefers the explicitly-selected household
+ * (set on create/join, persisted in the app store); otherwise falls back to the
+ * first local household, then the legacy default. Bootstrapping is idempotent.
  */
 export async function ensureDefaultHousehold(): Promise<string> {
   await bootstrapDatabase();
   const db = await getDb();
+
+  const activeId = useAppStore.getState().householdId;
+  if (activeId) {
+    const active = await db.getFirstAsync<{ id: string }>(
+      "SELECT id FROM households WHERE id = ? AND deletedAt IS NULL",
+      [activeId]
+    );
+    if (active) return active.id;
+  }
+
   const row = await db.getFirstAsync<{ id: string }>(
     "SELECT id FROM households WHERE deletedAt IS NULL ORDER BY createdAt ASC LIMIT 1"
   );
