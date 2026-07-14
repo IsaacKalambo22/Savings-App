@@ -19,7 +19,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#0A63E0"
       },
-      "package": "com.nestkeep.app"
+      "package": "com.nestkeep.app",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -41,6 +45,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9962668d-5df9-49ae-bf39-4cdf3b903bbf"
+      }
+    },
+    "owner": "kalambo"
   }
 }
