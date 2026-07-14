@@ -1,9 +1,9 @@
 import Image from "next/image";
 import ThemeToggle from "./theme-toggle";
 
-// EAS build — opens the install page (QR + direct APK download).
+// Permanent APK — GitHub Release asset (never expires, unlike EAS artifacts).
 const APK_URL =
-  "https://expo.dev/accounts/kalambo/projects/nestkeep/builds/71688b41-5138-41ee-8a89-4d066d93eec4";
+  "https://github.com/IsaacKalambo22/Savings-App/releases/download/v1.0.0/nestkeep.apk";
 
 /* ---------- Icons (inline, currentColor) ---------- */
 const iconProps = {
